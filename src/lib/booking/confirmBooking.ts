@@ -161,6 +161,9 @@ export async function confirmBooking(input: {
   paymentMethod: "card" | "bank_transfer";
   invoiceStatus: "paid" | "unpaid";
   squarePaymentId?: string;
+  /** Override charged total (e.g. fare + card service fee). */
+  amountCentsOverride?: number;
+  serviceFeeCents?: number;
   bankDetails?: {
     accountName: string;
     bsb: string;
@@ -249,8 +252,13 @@ export async function confirmBooking(input: {
         .toString()
         .padStart(3, "0")}`;
 
-      const amountCents = quote.quotedPriceCents * input.seatsBooked;
+      const fareCents = quote.quotedPriceCents * input.seatsBooked;
+      const amountCents = input.amountCentsOverride ?? fareCents;
       const paid = input.invoiceStatus === "paid";
+      const serviceFeeNote =
+        input.serviceFeeCents && input.serviceFeeCents > 0
+          ? `Includes service fee ${input.serviceFeeCents} cents (2.2% card).`
+          : "";
 
       const booking = await tx.booking.create({
         data: {
@@ -289,6 +297,7 @@ export async function confirmBooking(input: {
               : null,
           customerName: input.passengerName,
           customerEmail: input.email,
+          notes: serviceFeeNote,
           paidAt: paid ? new Date() : null,
           markedPaidByAdmin: false,
         },

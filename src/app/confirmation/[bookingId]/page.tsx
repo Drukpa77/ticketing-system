@@ -12,7 +12,7 @@ export default async function ConfirmationPage({
   const { bookingId } = await params;
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: { flight: true, returnFlight: true, invoice: true },
+    include: { flight: true, returnFlight: true, invoice: true, quote: true },
   });
   if (!booking) notFound();
 
@@ -20,6 +20,13 @@ export default async function ConfirmationPage({
   const invoice = booking.invoice;
   const unpaid = invoice?.status === "unpaid";
   const paid = invoice?.status === "paid" || booking.status === "confirmed";
+
+  const fareOnlyCents =
+    booking.quote.quotedPriceCents * booking.seatsBooked;
+  const cardServiceFeeCents =
+    booking.paymentMethod === "card"
+      ? Math.max(0, booking.amountPaidCents - fareOnlyCents)
+      : 0;
 
   return (
     <main className="relative min-h-[calc(100svh-4rem)] overflow-hidden">
@@ -79,10 +86,27 @@ export default async function ConfirmationPage({
             <p>
               <span className="text-muted">Seats</span> {booking.seatsBooked}
             </p>
-            <p>
-              <span className="text-muted">Amount (AUD)</span>{" "}
-              {formatAud(booking.amountPaidCents)}
-            </p>
+            {cardServiceFeeCents > 0 ? (
+              <>
+                <p>
+                  <span className="text-muted">Ticket fare</span>{" "}
+                  {formatAud(fareOnlyCents)}
+                </p>
+                <p>
+                  <span className="text-muted">Service fee (2.2%)</span>{" "}
+                  {formatAud(cardServiceFeeCents)}
+                </p>
+                <p>
+                  <span className="text-muted">Total paid (AUD)</span>{" "}
+                  {formatAud(booking.amountPaidCents)}
+                </p>
+              </>
+            ) : (
+              <p>
+                <span className="text-muted">Amount (AUD)</span>{" "}
+                {formatAud(booking.amountPaidCents)}
+              </p>
+            )}
           </div>
 
           {invoice && (

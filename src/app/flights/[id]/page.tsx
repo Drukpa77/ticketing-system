@@ -9,10 +9,13 @@ import { getSessionId } from "@/lib/session";
 
 export default async function FlightDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { id } = await params;
+  const { error } = await searchParams;
   const flight = await prisma.flight.findFirst({
     where: { id, active: true },
     include: { fareReleases: { orderBy: { sortOrder: "asc" } } },
@@ -20,8 +23,26 @@ export default async function FlightDetailPage({
   if (!flight) notFound();
 
   const sessionId = await getSessionId();
-  await recordDemandEvent(flight.id, "view", sessionId);
-  const price = await priceFlight(flight);
+  try {
+    await recordDemandEvent(flight.id, "view", sessionId);
+  } catch (err) {
+    console.error("recordDemandEvent failed", err);
+  }
+
+  let price;
+  try {
+    price = await priceFlight(flight);
+  } catch (err) {
+    console.error("priceFlight failed", err);
+    price = {
+      displayPriceCents: 0,
+      basePriceCents: 0,
+      farePriced: false,
+      fareReleaseId: null,
+      fareReleaseName: null,
+    };
+  }
+
   const soldOut = flight.remainingSeats < 1 || !price.farePriced;
 
   return (
@@ -98,6 +119,11 @@ export default async function FlightDetailPage({
               during checkout.
             </p>
             <BookButton flightId={flight.id} disabled={soldOut} />
+            {error && (
+              <p className="text-sm text-red-700">
+                {decodeURIComponent(error)}
+              </p>
+            )}
           </div>
         </div>
       </div>

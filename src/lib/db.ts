@@ -19,7 +19,7 @@ function createPrismaClient() {
   return new PrismaClient({ adapter });
 }
 
-function getPrisma() {
+function getPrisma(): PrismaClient {
   const stale =
     !globalForPrisma.prisma ||
     globalForPrisma.prismaSchemaVersion !== PRISMA_SCHEMA_VERSION ||
@@ -31,7 +31,7 @@ function getPrisma() {
     globalForPrisma.prismaSchemaVersion = PRISMA_SCHEMA_VERSION;
   }
 
-  return globalForPrisma.prisma;
+  return globalForPrisma.prisma!;
 }
 
 export const prisma = getPrisma();

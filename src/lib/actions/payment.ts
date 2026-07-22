@@ -12,6 +12,7 @@ import {
   chargeCardPayment,
   isSquareConfigured,
 } from "@/lib/payments/square";
+import { calculateCardServiceFee } from "@/lib/payments/fees";
 import { getSessionId } from "@/lib/session";
 import { bookingSchema } from "@/lib/validation";
 import { z } from "zod";
@@ -61,17 +62,18 @@ export async function payWithCardAction(input: {
       return { error: "Quote has expired — please book again" };
     }
 
-    const amountCents =
+    const fareCents =
       amountPreview.quotedPriceCents * parsed.data.seatsBooked;
+    const { totalCents, serviceFeeCents } = calculateCardServiceFee(fareCents);
 
     let squarePaymentId: string;
     try {
       const payment = await chargeCardPayment({
         sourceId: parsed.data.sourceId,
-        amountCents,
+        amountCents: totalCents,
         idempotencyKey: randomUUID(),
         referenceId: parsed.data.quoteId,
-        note: `Flight booking ${parsed.data.passengerName}`,
+        note: `Flight booking ${parsed.data.passengerName} (incl. 2.2% service fee)`,
         buyerEmail: parsed.data.email,
       });
       squarePaymentId = payment.paymentId;
@@ -88,6 +90,8 @@ export async function payWithCardAction(input: {
       paymentMethod: "card",
       invoiceStatus: "paid",
       squarePaymentId,
+      amountCentsOverride: totalCents,
+      serviceFeeCents,
     });
 
     if (!result.ok) {

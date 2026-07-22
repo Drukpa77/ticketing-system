@@ -1,7 +1,5 @@
-"use client";
-
-import { useState, useTransition } from "react";
-import { startCheckoutAction } from "@/lib/actions/booking";
+import { startCheckoutFormAction } from "@/lib/actions/booking";
+import { BookSubmitButton } from "@/components/BookSubmitButton";
 
 export function BookButton({
   flightId,
@@ -14,26 +12,13 @@ export function BookButton({
   disabled?: boolean;
   label?: string;
 }) {
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
   return (
-    <div className="space-y-2">
-      <button
-        type="button"
-        disabled={disabled || pending}
-        onClick={() => {
-          setError(null);
-          startTransition(async () => {
-            const result = await startCheckoutAction(flightId, returnFlightId);
-            if (result?.error) setError(result.error);
-          });
-        }}
-        className="inline-flex items-center justify-center bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
-      >
-        {pending ? "Locking price…" : label}
-      </button>
-      {error && <p className="text-sm text-red-700">{error}</p>}
-    </div>
+    <form action={startCheckoutFormAction} className="space-y-2">
+      <input type="hidden" name="flightId" value={flightId} />
+      {returnFlightId ? (
+        <input type="hidden" name="returnFlightId" value={returnFlightId} />
+      ) : null}
+      <BookSubmitButton disabled={disabled} label={label} />
+    </form>
   );
 }

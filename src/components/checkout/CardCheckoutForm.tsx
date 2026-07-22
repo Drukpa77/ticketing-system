@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { SquareCardFields } from "@/components/SquareCardFields";
 import { payWithCardAction } from "@/lib/actions/payment";
+import { calculateCardServiceFee } from "@/lib/payments/fees";
 import { formatAud } from "@/lib/pricing";
 
 const fieldClass =
@@ -33,7 +34,9 @@ export function CardCheckoutForm({
   const [pending, startTransition] = useTransition();
 
   const seatMax = Math.min(9, Math.max(1, maxSeats));
-  const totalCents = unitPriceCents * seatsBooked;
+  const fareCents = unitPriceCents * seatsBooked;
+  const fee = useMemo(() => calculateCardServiceFee(fareCents), [fareCents]);
+
   const passengerOk =
     passengerName.trim().length >= 2 &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -82,33 +85,52 @@ export function CardCheckoutForm({
             autoComplete="email"
           />
         </label>
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <label className="space-y-1 text-sm">
-            <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-              Seats
-            </span>
-            <input
-              type="number"
-              min={1}
-              max={seatMax}
-              value={seatsBooked}
-              onChange={(e) =>
-                setSeatsBooked(
-                  Math.min(seatMax, Math.max(1, Number(e.target.value) || 1)),
-                )
-              }
-              className={`${fieldClass} w-28`}
-            />
-          </label>
-          <div className="text-right">
-            <p className="text-xs uppercase tracking-[0.14em] text-muted">
-              Total due
-            </p>
-            <p className="font-[family-name:var(--font-syne)] text-3xl font-semibold">
-              {formatAud(totalCents)}
-            </p>
+        <label className="space-y-1 text-sm">
+          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
+            Seats
+          </span>
+          <input
+            type="number"
+            min={1}
+            max={seatMax}
+            value={seatsBooked}
+            onChange={(e) =>
+              setSeatsBooked(
+                Math.min(seatMax, Math.max(1, Number(e.target.value) || 1)),
+              )
+            }
+            className={`${fieldClass} w-28`}
+          />
+        </label>
+      </div>
+
+      <div className="border border-line bg-surface/70 p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+          Price breakdown
+        </p>
+        <dl className="mt-4 space-y-3 text-sm">
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted">Ticket fare</dt>
+            <dd className="font-medium">{formatAud(fee.fareCents)}</dd>
           </div>
-        </div>
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted">
+              Service fee{" "}
+              <span className="text-foreground/70">({fee.rateLabel})</span>
+            </dt>
+            <dd className="font-medium">{formatAud(fee.serviceFeeCents)}</dd>
+          </div>
+          <div className="flex justify-between gap-4 border-t border-line pt-3">
+            <dt className="font-semibold text-foreground">Total due</dt>
+            <dd className="font-[family-name:var(--font-syne)] text-2xl font-semibold">
+              {formatAud(fee.totalCents)}
+            </dd>
+          </div>
+        </dl>
+        <p className="mt-3 text-xs text-muted">
+          The service fee covers card processing costs for Visa, Mastercard, and
+          digital wallets.
+        </p>
       </div>
 
       <div className="border border-line bg-white/80 p-5 sm:p-6">
@@ -117,7 +139,9 @@ export function CardCheckoutForm({
           locationId={square.locationId}
           environment={square.environment}
           disabled={pending || !passengerOk}
-          buttonLabel={pending ? "Processing…" : `Pay ${formatAud(totalCents)}`}
+          buttonLabel={
+            pending ? "Processing…" : `Pay ${formatAud(fee.totalCents)}`
+          }
           onError={handleError}
           onToken={async (token) => {
             if (!passengerOk) {
@@ -149,7 +173,7 @@ export function CardCheckoutForm({
       {error && <p className="text-sm text-red-700">{error}</p>}
 
       <p className="text-sm text-muted">
-        Prefer invoice?{" "}
+        Prefer invoice with no service fee?{" "}
         <Link
           href={`/checkout/${quoteId}/bank`}
           className="font-medium text-accent underline"
