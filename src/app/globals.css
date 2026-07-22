@@ -1,26 +1,99 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #e9f0ec;
+  --foreground: #10231c;
+  --accent: #1a6b4a;
+  --accent-deep: #0f3d2e;
+  --surface: #f4f8f6;
+  --line: #c5d5cc;
+  --muted: #4d6359;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-accent: var(--accent);
+  --color-accent-deep: var(--accent-deep);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-muted: var(--muted);
+  --font-sans: var(--font-manrope);
+  --font-display: var(--font-syne);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+}
+
+input,
+button,
+select,
+textarea {
+  border-radius: 0;
+}
+
+@keyframes home-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes home-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-2%, 1.5%, 0) scale(1.04);
+  }
+}
+
+@keyframes home-line {
+  from {
+    stroke-dashoffset: 420;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.home-rise {
+  animation: home-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.home-rise-delay-1 {
+  animation-delay: 0.12s;
+}
+
+.home-rise-delay-2 {
+  animation-delay: 0.24s;
+}
+
+.home-rise-delay-3 {
+  animation-delay: 0.36s;
+}
+
+.home-drift {
+  animation: home-drift 18s ease-in-out infinite alternate;
+}
+
+.home-route-line {
+  stroke-dasharray: 420;
+  animation: home-line 2.4s ease-out 0.4s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-rise,
+  .home-drift,
+  .home-route-line {
+    animation: none;
+  }
 }

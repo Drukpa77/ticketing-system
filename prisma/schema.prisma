@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CabinClass {
+  economy
+  premium_economy
+  business
+  first
+}
+
+enum TripType {
+  one_way
+  round_trip
+}
+
+enum DemandEventType {
+  view
+  hold
+  purchase
+}
+
+enum QuoteStatus {
+  active
+  used
+  expired
+}
+
+enum BookingStatus {
+  confirmed
+  cancelled
+}
+
+model Flight {
+  id             String     @id @default(cuid())
+  airline        String
+  flightNumber   String
+  origin         String
+  destination    String
+  departureAt    DateTime
+  arrivalAt      DateTime
+  cabinClass     CabinClass @default(economy)
+  basePriceCents Int
+  currency       String     @default("AUD")
+  totalSeats     Int
+  remainingSeats Int
+  active         Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  demandEvents   DemandEvent[]
+  quotes         PriceQuote[]  @relation("OutboundQuotes")
+  returnQuotes   PriceQuote[]  @relation("ReturnQuotes")
+  bookings       Booking[]     @relation("OutboundBookings")
+  returnBookings Booking[]     @relation("ReturnBookings")
+
+  @@index([origin, destination, departureAt])
+  @@index([active])
+}
+
+model DemandEvent {
+  id        String          @id @default(cuid())
+  flightId  String
+  flight    Flight          @relation(fields: [flightId], references: [id], onDelete: Cascade)
+  type      DemandEventType
+  sessionId String
+  createdAt DateTime        @default(now())
+
+  @@index([flightId, createdAt])
+  @@index([sessionId])
+}
+
+model PriceQuote {
+  id                     String      @id @default(cuid())
+  flightId               String
+  flight                 Flight      @relation("OutboundQuotes", fields: [flightId], references: [id], onDelete: Cascade)
+  returnFlightId         String?
+  returnFlight           Flight?     @relation("ReturnQuotes", fields: [returnFlightId], references: [id], onDelete: Cascade)
+  tripType               TripType    @default(one_way)
+  sessionId              String
+  quotedPriceCents       Int
+  outboundPriceCents     Int
+  returnPriceCents       Int         @default(0)
+  basePriceSnapshotCents Int
+  demandMultiplier       Float
+  scarcityMultiplier     Float
+  baseMarkup             Float
+  expiresAt              DateTime
+  status                 QuoteStatus @default(active)
+  createdAt              DateTime    @default(now())
+
+  booking Booking?
+
+  @@index([sessionId])
+  @@index([expiresAt])
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+  quoteId         String        @unique
+  quote           PriceQuote    @relation(fields: [quoteId], references: [id])
+  flightId        String
+  flight          Flight        @relation("OutboundBookings", fields: [flightId], references: [id])
+  returnFlightId  String?
+  returnFlight    Flight?       @relation("ReturnBookings", fields: [returnFlightId], references: [id])
+  tripType        TripType      @default(one_way)
+  passengerName   String
+  email           String
+  seatsBooked     Int           @default(1)
+  amountPaidCents Int
+  status          BookingStatus @default(confirmed)
+  bookingRef      String        @unique
+  createdAt       DateTime      @default(now())
+
+  @@index([flightId])
+  @@index([email])
+}
+
+model PricingConfig {
+  id                  String   @id @default(cuid())
+  name                String   @unique @default("default")
+  baseMarkup          Float    @default(0.08)
+  demandWindowMinutes Int      @default(45)
+  quoteTtlMinutes     Int      @default(15)
+  maxUplift           Float    @default(0.25)
+  /// [{ maxScore: number, multiplier: number }] ascending by maxScore
+  demandBands         Json
+  /// [{ maxRatio: number, multiplier: number }] ascending by maxRatio (remaining/total)
+  scarcityBands       Json
+  updatedAt           DateTime @updatedAt
+}
