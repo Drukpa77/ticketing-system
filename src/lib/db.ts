@@ -3,7 +3,11 @@ import { PrismaClient } from "@/generated/prisma/client";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
+  prismaSchemaVersion: string | undefined;
 };
+
+/** Bump when Prisma models change so hot-reload drops a stale client. */
+const PRISMA_SCHEMA_VERSION = "invoice-v1";
 
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL;
@@ -15,8 +19,19 @@ function createPrismaClient() {
   return new PrismaClient({ adapter });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+function getPrisma() {
+  const stale =
+    !globalForPrisma.prisma ||
+    globalForPrisma.prismaSchemaVersion !== PRISMA_SCHEMA_VERSION ||
+    typeof (globalForPrisma.prisma as { invoice?: unknown }).invoice ===
+      "undefined";
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  if (stale) {
+    globalForPrisma.prisma = createPrismaClient();
+    globalForPrisma.prismaSchemaVersion = PRISMA_SCHEMA_VERSION;
+  }
+
+  return globalForPrisma.prisma;
 }
+
+export const prisma = getPrisma();

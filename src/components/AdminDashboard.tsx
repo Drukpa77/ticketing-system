@@ -10,6 +10,11 @@ import {
   updateFarePriceAction,
   updateFlightAction,
 } from "@/lib/actions/admin";
+import {
+  markInvoicePaidAction,
+  markInvoiceSentAction,
+  markInvoiceUnpaidAction,
+} from "@/lib/actions/invoices";
 import type { GroupedPriceAnalytics } from "@/lib/analytics/pricingAnalytics";
 import { PricingAnalyticsSection } from "@/components/PricingAnalyticsSection";
 import { toDateTimeLocalValue } from "@/lib/datetime";
@@ -53,6 +58,8 @@ type BookingRow = {
   passengerName: string;
   amountPaidCents: number;
   fareReleaseName: string;
+  status: "pending_payment" | "confirmed" | "cancelled";
+  paymentMethod: "card" | "bank_transfer" | null;
   flight: {
     flightNumber: string;
     origin: string;
@@ -65,13 +72,31 @@ type BookingRow = {
   } | null;
 };
 
-type Tab = "analytics" | "flights" | "form" | "bookings";
+type InvoiceRow = {
+  id: string;
+  invoiceNumber: string;
+  status: "unpaid" | "paid" | "cancelled" | "failed";
+  paymentMethod: "card" | "bank_transfer";
+  amountCents: number;
+  customerName: string;
+  customerEmail: string;
+  bankReference: string | null;
+  squarePaymentId: string | null;
+  sentAt: string | null;
+  paidAt: string | null;
+  markedPaidByAdmin: boolean;
+  createdAt: string;
+  bookingRef: string;
+};
+
+type Tab = "analytics" | "flights" | "form" | "bookings" | "invoices";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "analytics", label: "Analytics" },
   { id: "flights", label: "Flights" },
   { id: "form", label: "Add / Edit" },
   { id: "bookings", label: "Bookings" },
+  { id: "invoices", label: "Invoices" },
 ];
 
 const fieldClass =
@@ -92,6 +117,7 @@ function templateToRows(cabin: CabinClass): FareRow[] {
 export function AdminDashboard({
   flights,
   bookings,
+  invoices,
   analytics,
   initialTab,
   savedMessage,
@@ -99,6 +125,7 @@ export function AdminDashboard({
 }: {
   flights: FlightRow[];
   bookings: BookingRow[];
+  invoices: InvoiceRow[];
   analytics: GroupedPriceAnalytics;
   initialTab?: Tab;
   savedMessage?: string | null;
@@ -196,6 +223,12 @@ export function AdminDashboard({
               {bookings.length}
             </span>{" "}
             recent bookings
+          </p>
+          <p>
+            <span className="font-semibold text-foreground">
+              {invoices.filter((i) => i.status === "unpaid").length}
+            </span>{" "}
+            unpaid invoices
           </p>
         </div>
       </div>
@@ -637,15 +670,16 @@ export function AdminDashboard({
             </div>
           ) : (
             <div className="overflow-x-auto border-y border-line bg-surface/60">
-              <table className="w-full min-w-[720px] text-left text-sm">
+              <table className="w-full min-w-[820px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-line text-xs uppercase tracking-[0.12em] text-muted">
                     <th className="px-4 py-3 font-medium">Ref</th>
-                    <th className="px-4 py-3 font-medium">Type</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Pay</th>
                     <th className="px-4 py-3 font-medium">Fare</th>
                     <th className="px-4 py-3 font-medium">Customer</th>
                     <th className="px-4 py-3 font-medium">Flights</th>
-                    <th className="px-4 py-3 font-medium">Paid</th>
+                    <th className="px-4 py-3 font-medium">Amount</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -653,7 +687,14 @@ export function AdminDashboard({
                     <tr key={b.id} className="border-b border-line/70">
                       <td className="px-4 py-4 font-medium">{b.bookingRef}</td>
                       <td className="px-4 py-4 text-muted">
-                        {b.tripType === "round_trip" ? "Round trip" : "One way"}
+                        {b.status.replaceAll("_", " ")}
+                      </td>
+                      <td className="px-4 py-4 text-muted">
+                        {b.paymentMethod === "card"
+                          ? "Card"
+                          : b.paymentMethod === "bank_transfer"
+                            ? "Bank"
+                            : "—"}
                       </td>
                       <td className="px-4 py-4 text-muted">
                         {b.fareReleaseName || "—"}
@@ -674,6 +715,112 @@ export function AdminDashboard({
                 </tbody>
               </table>
             </div>
+          )}
+        </section>
+      )}
+
+      {tab === "invoices" && (
+        <section className="space-y-6">
+          <div>
+            <h2 className="font-[family-name:var(--font-syne)] text-2xl font-semibold tracking-tight">
+              Invoices
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted">
+              Card payments are marked paid automatically via Square. Bank
+              transfers stay unpaid until you confirm funds. Mark sent after you
+              review and email the customer.
+            </p>
+          </div>
+
+          {invoices.length === 0 ? (
+            <div className="border border-dashed border-line bg-surface/70 px-6 py-14 text-center text-sm text-muted">
+              No invoices yet.
+            </div>
+          ) : (
+            <ul className="divide-y divide-line border-y border-line bg-surface/60">
+              {invoices.map((invoice) => (
+                <li key={invoice.id} className="px-4 py-5 sm:px-5">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <p className="font-[family-name:var(--font-syne)] text-lg font-semibold tracking-tight">
+                          {invoice.invoiceNumber}
+                        </p>
+                        <span
+                          className={`text-xs font-medium uppercase tracking-[0.12em] ${
+                            invoice.status === "paid"
+                              ? "text-accent"
+                              : invoice.status === "unpaid"
+                                ? "text-amber-800"
+                                : "text-muted"
+                          }`}
+                        >
+                          {invoice.status}
+                          {invoice.markedPaidByAdmin ? " · admin" : ""}
+                        </span>
+                      </div>
+                      <p className="text-sm text-foreground">
+                        {invoice.customerName} · {invoice.customerEmail}
+                      </p>
+                      <p className="text-sm text-muted">
+                        Booking {invoice.bookingRef} ·{" "}
+                        {invoice.paymentMethod === "card"
+                          ? "Card (Square)"
+                          : "Bank transfer"}
+                        {invoice.bankReference
+                          ? ` · Ref ${invoice.bankReference}`
+                          : ""}
+                        {invoice.squarePaymentId
+                          ? ` · ${invoice.squarePaymentId}`
+                          : ""}
+                      </p>
+                      <p className="text-sm font-medium">
+                        {formatAud(invoice.amountCents)}
+                        {invoice.sentAt
+                          ? ` · Sent ${new Date(invoice.sentAt).toLocaleString("en-AU")}`
+                          : " · Not sent"}
+                        {invoice.paidAt
+                          ? ` · Paid ${new Date(invoice.paidAt).toLocaleString("en-AU")}`
+                          : ""}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {invoice.status !== "paid" ? (
+                        <form action={markInvoicePaidAction}>
+                          <input type="hidden" name="id" value={invoice.id} />
+                          <button
+                            type="submit"
+                            className="bg-accent-deep px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent"
+                          >
+                            Mark paid
+                          </button>
+                        </form>
+                      ) : (
+                        <form action={markInvoiceUnpaidAction}>
+                          <input type="hidden" name="id" value={invoice.id} />
+                          <button
+                            type="submit"
+                            className="border border-line px-4 py-2 text-sm font-medium text-muted transition hover:border-accent hover:text-foreground"
+                          >
+                            Mark unpaid
+                          </button>
+                        </form>
+                      )}
+                      <form action={markInvoiceSentAction}>
+                        <input type="hidden" name="id" value={invoice.id} />
+                        <button
+                          type="submit"
+                          className="border border-line px-4 py-2 text-sm font-medium text-muted transition hover:border-accent hover:text-foreground"
+                        >
+                          {invoice.sentAt ? "Mark sent again" : "Mark sent"}
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
       )}

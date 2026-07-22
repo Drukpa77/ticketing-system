@@ -1,0 +1,165 @@
+import Link from "next/link";
+import { airportLabel, formatFlightTime } from "@/lib/format";
+import { formatAud } from "@/lib/pricing";
+import type { CheckoutQuoteState } from "@/lib/checkout/loadQuote";
+
+export function CheckoutShell({
+  children,
+  backHref,
+  backLabel = "Back",
+}: {
+  children: React.ReactNode;
+  backHref: string;
+  backLabel?: string;
+}) {
+  return (
+    <main className="relative min-h-[calc(100svh-4rem)] overflow-hidden">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage: `
+            radial-gradient(ellipse at 12% 10%, rgba(26, 107, 74, 0.16), transparent 42%),
+            radial-gradient(ellipse at 88% 80%, rgba(15, 61, 46, 0.1), transparent 40%),
+            linear-gradient(165deg, #e9f0ec 0%, #f4f8f6 55%, #dde8e2 100%)
+          `,
+        }}
+      />
+      <div className="relative mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
+        <Link
+          href={backHref}
+          className="text-sm text-muted underline decoration-line underline-offset-4 transition hover:text-foreground"
+        >
+          {backLabel}
+        </Link>
+        <div className="mt-8">{children}</div>
+      </div>
+    </main>
+  );
+}
+
+export function QuoteSummaryCard({
+  state,
+  title,
+}: {
+  state: CheckoutQuoteState;
+  title: string;
+}) {
+  const { quote, isRound } = state;
+
+  return (
+    <aside className="border border-line bg-surface/85 p-6 backdrop-blur-sm sm:p-8">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
+        {isRound ? "Round trip" : "One way"} · locked fare
+      </p>
+      <h1 className="mt-3 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
+        {title}
+      </h1>
+
+      <div className="mt-8 space-y-5 text-sm">
+        <div className="border-b border-line pb-5">
+          <p className="text-xs uppercase tracking-[0.14em] text-muted">
+            Outbound
+          </p>
+          <p className="mt-2 font-medium text-foreground">
+            {quote.flight.airline} {quote.flight.flightNumber}
+          </p>
+          <p className="mt-1 text-muted">
+            {airportLabel(quote.flight.origin)} →{" "}
+            {airportLabel(quote.flight.destination)}
+          </p>
+          <p className="mt-1 text-muted">
+            {formatFlightTime(quote.flight.departureAt)}
+            {quote.fareReleaseName ? ` · ${quote.fareReleaseName}` : ""}
+          </p>
+          {isRound && (
+            <p className="mt-2 font-medium">
+              {formatAud(quote.outboundPriceCents)}
+            </p>
+          )}
+        </div>
+
+        {isRound && quote.returnFlight && (
+          <div className="border-b border-line pb-5">
+            <p className="text-xs uppercase tracking-[0.14em] text-muted">
+              Return
+            </p>
+            <p className="mt-2 font-medium text-foreground">
+              {quote.returnFlight.airline} {quote.returnFlight.flightNumber}
+            </p>
+            <p className="mt-1 text-muted">
+              {airportLabel(quote.returnFlight.origin)} →{" "}
+              {airportLabel(quote.returnFlight.destination)}
+            </p>
+            <p className="mt-1 text-muted">
+              {formatFlightTime(quote.returnFlight.departureAt)}
+              {quote.returnFareReleaseName
+                ? ` · ${quote.returnFareReleaseName}`
+                : ""}
+            </p>
+            <p className="mt-2 font-medium">
+              {formatAud(quote.returnPriceCents)}
+            </p>
+          </div>
+        )}
+
+        <div>
+          <p className="text-xs uppercase tracking-[0.14em] text-muted">
+            Price per seat
+          </p>
+          <p className="mt-2 font-[family-name:var(--font-syne)] text-4xl font-semibold tracking-tight">
+            {formatAud(quote.quotedPriceCents)}
+          </p>
+          <p className="mt-2 text-sm text-muted">
+            Lock expires {formatFlightTime(quote.expiresAt)}
+          </p>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+export function QuoteBlockedMessage({
+  state,
+}: {
+  state: CheckoutQuoteState;
+}) {
+  if (!state.owned) {
+    return (
+      <p className="text-sm text-red-700">
+        This quote belongs to another browser session. Start a new search from
+        this browser.
+      </p>
+    );
+  }
+  if (state.used) {
+    return (
+      <p className="text-sm text-amber-700">
+        This quote was already used for a booking.
+      </p>
+    );
+  }
+  if (state.expired) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-red-700">
+          This price lock has expired. Search again for a fresh quote.
+        </p>
+        <Link
+          href="/"
+          className="inline-flex bg-accent-deep px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-accent"
+        >
+          Search again
+        </Link>
+      </div>
+    );
+  }
+  if (state.maxSeats < 1) {
+    return (
+      <p className="text-sm text-red-700">
+        No seats left on this fare. Please search again.
+      </p>
+    );
+  }
+  return null;
+}

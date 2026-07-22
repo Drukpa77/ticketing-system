@@ -27,6 +27,7 @@ function addHours(date: Date, hours: number): Date {
 }
 
 async function main() {
+  await prisma.invoice.deleteMany();
   await prisma.booking.deleteMany();
   await prisma.priceQuote.deleteMany();
   await prisma.demandEvent.deleteMany();

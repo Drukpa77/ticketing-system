@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/db";
 import { getCurrentFareRelease } from "@/lib/fares/current";
+import {
+  makeBankReference,
+  makeInvoiceNumber,
+} from "@/lib/payments/bank";
 import { getPricingConfig, priceFlight } from "@/lib/pricing/service";
 
 export async function createPriceQuote(input: {
@@ -154,9 +158,17 @@ export async function confirmBooking(input: {
   passengerName: string;
   email: string;
   seatsBooked: number;
+  paymentMethod: "card" | "bank_transfer";
+  invoiceStatus: "paid" | "unpaid";
+  squarePaymentId?: string;
+  bankDetails?: {
+    accountName: string;
+    bsb: string;
+    accountNumber: string;
+  } | null;
 }) {
   try {
-    const booking = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const quote = await tx.priceQuote.findUnique({
         where: { id: input.quoteId },
       });
@@ -237,7 +249,10 @@ export async function confirmBooking(input: {
         .toString()
         .padStart(3, "0")}`;
 
-      return tx.booking.create({
+      const amountCents = quote.quotedPriceCents * input.seatsBooked;
+      const paid = input.invoiceStatus === "paid";
+
+      const booking = await tx.booking.create({
         data: {
           quoteId: quote.id,
           flightId: flight.id,
@@ -249,14 +264,40 @@ export async function confirmBooking(input: {
           passengerName: input.passengerName,
           email: input.email,
           seatsBooked: input.seatsBooked,
-          amountPaidCents: quote.quotedPriceCents * input.seatsBooked,
-          status: "confirmed",
+          amountPaidCents: amountCents,
+          paymentMethod: input.paymentMethod,
+          status: paid ? "confirmed" : "pending_payment",
           bookingRef,
         },
       });
+
+      const invoice = await tx.invoice.create({
+        data: {
+          invoiceNumber: makeInvoiceNumber(),
+          bookingId: booking.id,
+          paymentMethod: input.paymentMethod,
+          status: input.invoiceStatus,
+          amountCents,
+          currency: "AUD",
+          squarePaymentId: input.squarePaymentId,
+          bankAccountName: input.bankDetails?.accountName,
+          bankBsb: input.bankDetails?.bsb,
+          bankAccountNumber: input.bankDetails?.accountNumber,
+          bankReference:
+            input.paymentMethod === "bank_transfer"
+              ? makeBankReference(bookingRef)
+              : null,
+          customerName: input.passengerName,
+          customerEmail: input.email,
+          paidAt: paid ? new Date() : null,
+          markedPaidByAdmin: false,
+        },
+      });
+
+      return { booking, invoice };
     });
 
-    return { ok: true as const, booking };
+    return { ok: true as const, ...result };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Could not confirm booking";

@@ -17,12 +17,13 @@ async function isAdminAuthed() {
 
 function parseTab(
   value?: string,
-): "analytics" | "flights" | "form" | "bookings" | undefined {
+): "analytics" | "flights" | "form" | "bookings" | "invoices" | undefined {
   if (
     value === "analytics" ||
     value === "flights" ||
     value === "form" ||
-    value === "bookings"
+    value === "bookings" ||
+    value === "invoices"
   ) {
     return value;
   }
@@ -128,7 +129,7 @@ export default async function AdminPage({
     );
   }
 
-  const [flights, bookings, analytics] = await Promise.all([
+  const [flights, bookings, invoices, analytics] = await Promise.all([
     prisma.flight.findMany({
       orderBy: [{ active: "desc" }, { departureAt: "asc" }],
       include: { fareReleases: { orderBy: { sortOrder: "asc" } } },
@@ -137,6 +138,11 @@ export default async function AdminPage({
       orderBy: { createdAt: "desc" },
       take: 30,
       include: { flight: true, returnFlight: true },
+    }),
+    prisma.invoice.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: { booking: { select: { bookingRef: true } } },
     }),
     getFlightPriceAnalytics(),
   ]);
@@ -154,7 +160,13 @@ export default async function AdminPage({
               ? "Flight is visible to customers again."
               : params.saved === "deleted"
                 ? "Flight deleted permanently."
-                : null;
+                : params.saved === "invoice-paid"
+                  ? "Invoice marked paid."
+                  : params.saved === "invoice-unpaid"
+                    ? "Invoice marked unpaid."
+                    : params.saved === "invoice-sent"
+                      ? "Invoice marked as sent (email delivery comes next)."
+                      : null;
 
   const initialTab =
     parseTab(params.tab) ??
@@ -165,7 +177,9 @@ export default async function AdminPage({
     params.saved === "restored" ||
     params.saved === "deleted"
       ? "flights"
-      : "analytics");
+      : params.saved?.startsWith("invoice")
+        ? "invoices"
+        : "analytics");
 
   return (
     <main className="relative min-h-[calc(100svh-4rem)] overflow-hidden">
@@ -191,8 +205,8 @@ export default async function AdminPage({
               Dashboard
             </h1>
             <p className="mt-3 text-sm leading-relaxed text-muted sm:text-base">
-              Publish flights, set ticket prices, and watch live fares move by
-              destination and ticket type.
+              Publish flights, set ticket prices, and manage invoices from card
+              and bank-transfer payments.
             </p>
           </div>
           <form action={logout}>
@@ -241,6 +255,8 @@ export default async function AdminPage({
               passengerName: b.passengerName,
               amountPaidCents: b.amountPaidCents,
               fareReleaseName: b.fareReleaseName,
+              status: b.status,
+              paymentMethod: b.paymentMethod,
               flight: {
                 flightNumber: b.flight.flightNumber,
                 origin: b.flight.origin,
@@ -253,6 +269,22 @@ export default async function AdminPage({
                     destination: b.returnFlight.destination,
                   }
                 : null,
+            }))}
+            invoices={invoices.map((invoice) => ({
+              id: invoice.id,
+              invoiceNumber: invoice.invoiceNumber,
+              status: invoice.status,
+              paymentMethod: invoice.paymentMethod,
+              amountCents: invoice.amountCents,
+              customerName: invoice.customerName,
+              customerEmail: invoice.customerEmail,
+              bankReference: invoice.bankReference,
+              squarePaymentId: invoice.squarePaymentId,
+              sentAt: invoice.sentAt?.toISOString() ?? null,
+              paidAt: invoice.paidAt?.toISOString() ?? null,
+              markedPaidByAdmin: invoice.markedPaidByAdmin,
+              createdAt: invoice.createdAt.toISOString(),
+              bookingRef: invoice.booking.bookingRef,
             }))}
           />
         </div>

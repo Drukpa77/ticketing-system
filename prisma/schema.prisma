@@ -30,8 +30,21 @@ enum QuoteStatus {
 }
 
 enum BookingStatus {
+  pending_payment
   confirmed
   cancelled
+}
+
+enum PaymentMethod {
+  card
+  bank_transfer
+}
+
+enum InvoiceStatus {
+  unpaid
+  paid
+  cancelled
+  failed
 }
 
 model Flight {
@@ -127,29 +140,59 @@ model PriceQuote {
 }
 
 model Booking {
-  id                 String        @id @default(cuid())
-  quoteId            String        @unique
-  quote              PriceQuote    @relation(fields: [quoteId], references: [id])
-  flightId           String
-  flight             Flight        @relation("OutboundBookings", fields: [flightId], references: [id])
-  fareReleaseId      String?
-  fareRelease        FareRelease?  @relation("OutboundFareBooking", fields: [fareReleaseId], references: [id])
-  returnFlightId     String?
-  returnFlight       Flight?       @relation("ReturnBookings", fields: [returnFlightId], references: [id])
+  id                  String         @id @default(cuid())
+  quoteId             String         @unique
+  quote               PriceQuote     @relation(fields: [quoteId], references: [id])
+  flightId            String
+  flight              Flight         @relation("OutboundBookings", fields: [flightId], references: [id])
+  fareReleaseId       String?
+  fareRelease         FareRelease?   @relation("OutboundFareBooking", fields: [fareReleaseId], references: [id])
+  returnFlightId      String?
+  returnFlight        Flight?        @relation("ReturnBookings", fields: [returnFlightId], references: [id])
   returnFareReleaseId String?
-  returnFareRelease  FareRelease?  @relation("ReturnFareBooking", fields: [returnFareReleaseId], references: [id])
-  tripType           TripType      @default(one_way)
-  passengerName      String
-  email              String
-  seatsBooked        Int           @default(1)
-  amountPaidCents    Int
-  fareReleaseName    String        @default("")
-  status             BookingStatus @default(confirmed)
-  bookingRef         String        @unique
-  createdAt          DateTime      @default(now())
+  returnFareRelease   FareRelease?   @relation("ReturnFareBooking", fields: [returnFareReleaseId], references: [id])
+  tripType            TripType       @default(one_way)
+  passengerName       String
+  email               String
+  seatsBooked         Int            @default(1)
+  amountPaidCents     Int
+  fareReleaseName     String         @default("")
+  paymentMethod       PaymentMethod?
+  status              BookingStatus  @default(pending_payment)
+  bookingRef          String         @unique
+  createdAt           DateTime       @default(now())
+  invoice             Invoice?
 
   @@index([flightId])
   @@index([email])
+}
+
+model Invoice {
+  id                String         @id @default(cuid())
+  invoiceNumber     String         @unique
+  bookingId         String         @unique
+  booking           Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  paymentMethod     PaymentMethod
+  status            InvoiceStatus  @default(unpaid)
+  amountCents       Int
+  currency          String         @default("AUD")
+  squarePaymentId   String?
+  bankAccountName   String?
+  bankBsb           String?
+  bankAccountNumber String?
+  bankReference     String?
+  customerName     String
+  customerEmail     String
+  notes             String         @default("")
+  sentAt            DateTime?
+  paidAt            DateTime?
+  markedPaidByAdmin Boolean        @default(false)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([status])
+  @@index([paymentMethod])
+  @@index([createdAt])
 }
 
 model PricingConfig {
