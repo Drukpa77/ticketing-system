@@ -73,26 +73,41 @@ Seeded examples (dates are relative to seed time — pick a date within ~2 weeks
 - `SYD` → `SIN`
 - `MEL` → `LAX`
 
-## Vercel deploy
+## Vercel + Railway Postgres
 
-1. Push this repo to GitHub.
-2. Import the project in Vercel.
-3. Create a hosted Postgres database and set:
-   - `DATABASE_URL`
-   - `ADMIN_PASSWORD`
-4. Recommended build command:
+1. In [Railway](https://railway.app): **New Project** → **Database** → **PostgreSQL**.
+2. Open the Postgres service → **Variables** and copy:
+   - `DATABASE_URL` (private, best if app is also on Railway), or
+   - `DATABASE_PUBLIC_URL` / public TCP URL (use this when the **app is on Vercel**)
+3. In Vercel → Project → **Settings** → **Environment Variables**:
+   - `DATABASE_URL` = Railway public Postgres URL (add `?sslmode=require` if missing)
+   - `ADMIN_PASSWORD` = a strong password
+4. Deploy on Vercel. Build runs:
 
 ```bash
 prisma generate && prisma migrate deploy && next build
 ```
 
-5. After first deploy, seed once:
+5. Seed once (from your laptop, using the same Railway URL):
 
 ```bash
+$env:DATABASE_URL="your-railway-public-url"
 npm run db:seed
 ```
 
-(Use your production `DATABASE_URL` locally for that one-off seed.)
+Then open your Vercel URL and test search + `/admin`.
+
+### Local development against Railway
+
+Put the same Railway `DATABASE_URL` in your local `.env`, then:
+
+```bash
+npx prisma migrate deploy
+npm run db:seed
+npm run dev
+```
+
+Do **not** commit `.env`.
 
 ## Out of scope (MVP)
 
