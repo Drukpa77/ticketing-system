@@ -131,6 +131,7 @@ export default async function AdminPage({
   const [flights, bookings, analytics] = await Promise.all([
     prisma.flight.findMany({
       orderBy: [{ active: "desc" }, { departureAt: "asc" }],
+      include: { fareReleases: { orderBy: { sortOrder: "asc" } } },
     }),
     prisma.booking.findMany({
       orderBy: { createdAt: "desc" },
@@ -220,11 +221,18 @@ export default async function AdminPage({
               destination: f.destination,
               departureAt: f.departureAt.toISOString(),
               arrivalAt: f.arrivalAt.toISOString(),
-              cabinClass: f.cabinClass,
-              basePriceCents: f.basePriceCents,
+              cabinClass: f.cabinClass as "economy" | "business",
               totalSeats: f.totalSeats,
               remainingSeats: f.remainingSeats,
               active: f.active,
+              fareReleases: f.fareReleases.map((r) => ({
+                id: r.id,
+                name: r.name,
+                sortOrder: r.sortOrder,
+                totalSeats: r.totalSeats,
+                remainingSeats: r.remainingSeats,
+                priceCents: r.priceCents,
+              })),
             }))}
             bookings={bookings.map((b) => ({
               id: b.id,
@@ -232,6 +240,7 @@ export default async function AdminPage({
               tripType: b.tripType,
               passengerName: b.passengerName,
               amountPaidCents: b.amountPaidCents,
+              fareReleaseName: b.fareReleaseName,
               flight: {
                 flightNumber: b.flight.flightNumber,
                 origin: b.flight.origin,

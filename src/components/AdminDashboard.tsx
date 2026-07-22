@@ -7,16 +7,29 @@ import {
   deleteFlightAction,
   removeFlightAction,
   restoreFlightAction,
+  updateFarePriceAction,
   updateFlightAction,
-  updateTicketPriceAction,
 } from "@/lib/actions/admin";
 import type { GroupedPriceAnalytics } from "@/lib/analytics/pricingAnalytics";
 import { PricingAnalyticsSection } from "@/components/PricingAnalyticsSection";
 import { toDateTimeLocalValue } from "@/lib/datetime";
+import {
+  BUSINESS_FARE_TEMPLATE,
+  ECONOMY_FARE_TEMPLATE,
+} from "@/lib/fares/templates";
 import { formatAud } from "@/lib/pricing";
 
-type CabinClass = "economy" | "premium_economy" | "business" | "first";
+type CabinClass = "economy" | "business";
 type TripType = "one_way" | "round_trip";
+
+type FareRow = {
+  id?: string;
+  name: string;
+  sortOrder: number;
+  totalSeats: number;
+  remainingSeats: number;
+  priceCents: number;
+};
 
 type FlightRow = {
   id: string;
@@ -27,10 +40,10 @@ type FlightRow = {
   departureAt: string;
   arrivalAt: string;
   cabinClass: CabinClass;
-  basePriceCents: number;
   totalSeats: number;
   remainingSeats: number;
   active: boolean;
+  fareReleases: FareRow[];
 };
 
 type BookingRow = {
@@ -39,6 +52,7 @@ type BookingRow = {
   tripType: TripType;
   passengerName: string;
   amountPaidCents: number;
+  fareReleaseName: string;
   flight: {
     flightNumber: string;
     origin: string;
@@ -63,6 +77,18 @@ const TABS: { id: Tab; label: string }[] = [
 const fieldClass =
   "w-full border-0 border-b border-line bg-transparent py-3 text-sm text-foreground outline-none transition focus:border-accent";
 
+function templateToRows(cabin: CabinClass): FareRow[] {
+  const template =
+    cabin === "economy" ? ECONOMY_FARE_TEMPLATE : BUSINESS_FARE_TEMPLATE;
+  return template.map((t) => ({
+    name: t.name,
+    sortOrder: t.sortOrder,
+    totalSeats: t.totalSeats,
+    remainingSeats: t.totalSeats,
+    priceCents: 0,
+  }));
+}
+
 export function AdminDashboard({
   flights,
   bookings,
@@ -81,6 +107,10 @@ export function AdminDashboard({
   const router = useRouter();
   const [tab, setTab] = useState<Tab>(initialTab ?? "analytics");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [cabinClass, setCabinClass] = useState<CabinClass>("business");
+  const [fareRows, setFareRows] = useState<FareRow[]>(() =>
+    templateToRows("business"),
+  );
 
   const editing = useMemo(
     () => flights.find((f) => f.id === editingId) ?? null,
@@ -93,14 +123,34 @@ export function AdminDashboard({
     if (initialTab) setTab(initialTab);
   }, [initialTab]);
 
+  useEffect(() => {
+    if (editing) {
+      setCabinClass(editing.cabinClass);
+      setFareRows(
+        editing.fareReleases.length > 0
+          ? editing.fareReleases.map((r) => ({ ...r }))
+          : templateToRows(editing.cabinClass),
+      );
+    }
+  }, [editing]);
+
   function openAdd() {
     setEditingId(null);
+    setCabinClass("business");
+    setFareRows(templateToRows("business"));
     setTab("form");
   }
 
   function openEdit(id: string) {
     setEditingId(id);
     setTab("form");
+  }
+
+  function onCabinChange(next: CabinClass) {
+    setCabinClass(next);
+    if (!editing) {
+      setFareRows(templateToRows(next));
+    }
   }
 
   return (
@@ -124,9 +174,7 @@ export function AdminDashboard({
                   else setTab(item.id);
                 }}
                 className={`relative px-4 py-3 text-sm font-medium transition ${
-                  active
-                    ? "text-foreground"
-                    : "text-muted hover:text-foreground"
+                  active ? "text-foreground" : "text-muted hover:text-foreground"
                 }`}
               >
                 {label}
@@ -175,8 +223,8 @@ export function AdminDashboard({
                 Flight inventory
               </h2>
               <p className="mt-1 max-w-xl text-sm text-muted">
-                Set starting ticket prices and keep routes visible to customers.
-                Round trips need both directions listed.
+                Each flight sells in order: Early Bird → Standard → Final
+                Release. Set prices per release — nothing is hardcoded.
               </p>
             </div>
             <button
@@ -192,9 +240,6 @@ export function AdminDashboard({
             <div className="border border-dashed border-line bg-surface/70 px-6 py-14 text-center">
               <p className="font-[family-name:var(--font-syne)] text-xl font-semibold">
                 No flights yet
-              </p>
-              <p className="mt-2 text-sm text-muted">
-                Add your first route to start selling.
               </p>
               <button
                 type="button"
@@ -219,22 +264,17 @@ export function AdminDashboard({
                             f.active ? "text-accent" : "text-red-700"
                           }`}
                         >
-                          {f.active ? "Live" : "Hidden"}
+                          {f.active ? "Live" : "Hidden"} · {f.cabinClass}
                         </span>
                       </div>
                       <p className="text-sm text-foreground">
                         {f.origin} → {f.destination}
-                        <span className="text-muted">
-                          {" "}
-                          · {f.cabinClass.replaceAll("_", " ")}
-                        </span>
                       </p>
                       <p className="text-sm text-muted">
-                        {f.remainingSeats}/{f.totalSeats} seats · ticket{" "}
-                        {formatAud(f.basePriceCents)}
+                        {f.remainingSeats}/{f.totalSeats} seats across fare
+                        releases
                       </p>
                     </div>
-
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
                       <button
                         type="button"
@@ -276,32 +316,46 @@ export function AdminDashboard({
                     </div>
                   </div>
 
-                  <form
-                    action={updateTicketPriceAction}
-                    className="mt-4 flex flex-wrap items-end gap-3 border-t border-line/70 pt-4"
-                  >
-                    <input type="hidden" name="id" value={f.id} />
-                    <label className="space-y-1 text-sm">
-                      <span className="text-xs uppercase tracking-[0.14em] text-muted">
-                        Ticket price (AUD)
-                      </span>
-                      <input
-                        name="basePriceAud"
-                        type="number"
-                        min={1}
-                        step={0.01}
-                        required
-                        defaultValue={(f.basePriceCents / 100).toFixed(2)}
-                        className="w-40 border border-line bg-white px-3 py-2 outline-none focus:border-accent"
-                      />
-                    </label>
-                    <button
-                      type="submit"
-                      className="bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-deep"
-                    >
-                      Update price
-                    </button>
-                  </form>
+                  <div className="mt-4 space-y-3 border-t border-line/70 pt-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+                      Fare releases
+                    </p>
+                    {f.fareReleases.map((release) => (
+                      <form
+                        key={release.id}
+                        action={updateFarePriceAction}
+                        className="flex flex-wrap items-end gap-3"
+                      >
+                        <input type="hidden" name="id" value={release.id} />
+                        <div className="min-w-[10rem] flex-1">
+                          <p className="text-sm font-medium">{release.name}</p>
+                          <p className="text-xs text-muted">
+                            {release.remainingSeats}/{release.totalSeats} seats
+                          </p>
+                        </div>
+                        <label className="space-y-1 text-sm">
+                          <span className="text-xs uppercase tracking-[0.14em] text-muted">
+                            Price (AUD)
+                          </span>
+                          <input
+                            name="priceAud"
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            required
+                            defaultValue={(release.priceCents / 100).toFixed(2)}
+                            className="w-36 border border-line bg-white px-3 py-2 outline-none focus:border-accent"
+                          />
+                        </label>
+                        <button
+                          type="submit"
+                          className="bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-deep"
+                        >
+                          Update price
+                        </button>
+                      </form>
+                    ))}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -319,8 +373,8 @@ export function AdminDashboard({
               {editing ? "Edit flight" : "Add a flight"}
             </h2>
             <p className="mt-2 text-sm text-muted">
-              Enter the route basics and starting ticket price. Live fares
-              adjust automatically from there.
+              Business defaults to 20 seats across Early Bird (5), Business
+              Standard (10), and Final Release (5). Set every price yourself.
             </p>
           </div>
 
@@ -413,66 +467,139 @@ export function AdminDashboard({
                 className={fieldClass}
               />
             </label>
-            <label className="space-y-1 text-sm">
+            <label className="space-y-1 text-sm sm:col-span-2">
               <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-                Ticket type
+                Cabin / product
               </span>
               <select
                 name="cabinClass"
-                defaultValue={editing?.cabinClass ?? "economy"}
+                value={cabinClass}
+                onChange={(e) => onCabinChange(e.target.value as CabinClass)}
                 className={fieldClass}
               >
-                <option value="economy">Economy</option>
-                <option value="premium_economy">Premium economy</option>
-                <option value="business">Business</option>
-                <option value="first">First</option>
+                <option value="business">Business (20-seat fare template)</option>
+                <option value="economy">Economy (same release structure)</option>
               </select>
             </label>
-            <label className="space-y-1 text-sm">
-              <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-                Ticket price (AUD)
-              </span>
-              <input
-                name="basePriceAud"
-                type="number"
-                min={1}
-                step={0.01}
-                required
-                defaultValue={
-                  editing ? (editing.basePriceCents / 100).toFixed(2) : ""
-                }
-                placeholder="189.00"
-                className={fieldClass}
-              />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-                How many seats
-              </span>
-              <input
-                name="totalSeats"
-                type="number"
-                min={1}
-                required
-                defaultValue={editing?.totalSeats ?? 180}
-                className={fieldClass}
-              />
-            </label>
-            {editing && (
-              <label className="space-y-1 text-sm">
-                <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-                  Seats still for sale
+
+            <div className="sm:col-span-2 space-y-4 border border-line bg-white/50 p-4">
+              <div>
+                <p className="font-[family-name:var(--font-syne)] text-lg font-semibold">
+                  Fare releases
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  Sold in order. Leave price at 0 until you are ready — that
+                  release will not sell.
+                </p>
+              </div>
+              {fareRows.map((row, index) => (
+                <div
+                  key={`${row.name}-${index}`}
+                  className="grid gap-3 border-t border-line pt-4 sm:grid-cols-4"
+                >
+                  <input type="hidden" name="fareSortOrder" value={row.sortOrder} />
+                  <label className="space-y-1 text-sm sm:col-span-2">
+                    <span className="text-xs uppercase tracking-[0.12em] text-muted">
+                      Release name
+                    </span>
+                    <input
+                      name="fareName"
+                      required
+                      value={row.name}
+                      onChange={(e) => {
+                        const next = [...fareRows];
+                        next[index] = { ...row, name: e.target.value };
+                        setFareRows(next);
+                      }}
+                      className={fieldClass}
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm">
+                    <span className="text-xs uppercase tracking-[0.12em] text-muted">
+                      Seats
+                    </span>
+                    <input
+                      name="fareTotalSeats"
+                      type="number"
+                      min={0}
+                      required
+                      value={row.totalSeats}
+                      onChange={(e) => {
+                        const totalSeats = Number(e.target.value);
+                        const next = [...fareRows];
+                        next[index] = {
+                          ...row,
+                          totalSeats,
+                          remainingSeats: editing
+                            ? Math.min(row.remainingSeats, totalSeats)
+                            : totalSeats,
+                        };
+                        setFareRows(next);
+                      }}
+                      className={fieldClass}
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm">
+                    <span className="text-xs uppercase tracking-[0.12em] text-muted">
+                      Price (AUD)
+                    </span>
+                    <input
+                      name="farePriceAud"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      required
+                      value={(row.priceCents / 100).toFixed(2)}
+                      onChange={(e) => {
+                        const next = [...fareRows];
+                        next[index] = {
+                          ...row,
+                          priceCents: Math.round(Number(e.target.value) * 100),
+                        };
+                        setFareRows(next);
+                      }}
+                      className={fieldClass}
+                    />
+                  </label>
+                  {editing && (
+                    <label className="space-y-1 text-sm sm:col-span-2">
+                      <span className="text-xs uppercase tracking-[0.12em] text-muted">
+                        Seats still for sale
+                      </span>
+                      <input
+                        name="fareRemainingSeats"
+                        type="number"
+                        min={0}
+                        required
+                        value={row.remainingSeats}
+                        onChange={(e) => {
+                          const next = [...fareRows];
+                          next[index] = {
+                            ...row,
+                            remainingSeats: Number(e.target.value),
+                          };
+                          setFareRows(next);
+                        }}
+                        className={fieldClass}
+                      />
+                    </label>
+                  )}
+                  {!editing && (
+                    <input
+                      type="hidden"
+                      name="fareRemainingSeats"
+                      value={row.totalSeats}
+                    />
+                  )}
+                </div>
+              ))}
+              <p className="text-sm text-muted">
+                Total seats:{" "}
+                <span className="font-medium text-foreground">
+                  {fareRows.reduce((s, r) => s + r.totalSeats, 0)}
                 </span>
-                <input
-                  name="remainingSeats"
-                  type="number"
-                  min={0}
-                  required
-                  defaultValue={editing.remainingSeats}
-                  className={fieldClass}
-                />
-              </label>
-            )}
+              </p>
+            </div>
 
             <div className="flex flex-wrap gap-3 sm:col-span-2">
               <button
@@ -503,22 +630,19 @@ export function AdminDashboard({
             <h2 className="font-[family-name:var(--font-syne)] text-2xl font-semibold tracking-tight">
               Recent bookings
             </h2>
-            <p className="mt-1 text-sm text-muted">
-              Latest customer confirmations from the public booking flow.
-            </p>
           </div>
-
           {bookings.length === 0 ? (
             <div className="border border-dashed border-line bg-surface/70 px-6 py-14 text-center text-sm text-muted">
               No bookings yet.
             </div>
           ) : (
             <div className="overflow-x-auto border-y border-line bg-surface/60">
-              <table className="w-full min-w-[640px] text-left text-sm">
+              <table className="w-full min-w-[720px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-line text-xs uppercase tracking-[0.12em] text-muted">
                     <th className="px-4 py-3 font-medium">Ref</th>
                     <th className="px-4 py-3 font-medium">Type</th>
+                    <th className="px-4 py-3 font-medium">Fare</th>
                     <th className="px-4 py-3 font-medium">Customer</th>
                     <th className="px-4 py-3 font-medium">Flights</th>
                     <th className="px-4 py-3 font-medium">Paid</th>
@@ -530,6 +654,9 @@ export function AdminDashboard({
                       <td className="px-4 py-4 font-medium">{b.bookingRef}</td>
                       <td className="px-4 py-4 text-muted">
                         {b.tripType === "round_trip" ? "Round trip" : "One way"}
+                      </td>
+                      <td className="px-4 py-4 text-muted">
+                        {b.fareReleaseName || "—"}
                       </td>
                       <td className="px-4 py-4">{b.passengerName}</td>
                       <td className="px-4 py-4 text-muted">

@@ -54,9 +54,8 @@ export default async function CheckoutPage({
             {airportLabel(quote.flight.origin)} →{" "}
             {airportLabel(quote.flight.destination)} ·{" "}
             {formatFlightTime(quote.flight.departureAt)}
-            {isRound && (
-              <> · {formatAud(quote.outboundPriceCents)}</>
-            )}
+            {quote.fareReleaseName ? ` · ${quote.fareReleaseName}` : ""}
+            {isRound && <> · {formatAud(quote.outboundPriceCents)}</>}
           </p>
           {isRound && quote.returnFlight && (
             <p>
@@ -64,8 +63,11 @@ export default async function CheckoutPage({
               {quote.returnFlight.airline} {quote.returnFlight.flightNumber} ·{" "}
               {airportLabel(quote.returnFlight.origin)} →{" "}
               {airportLabel(quote.returnFlight.destination)} ·{" "}
-              {formatFlightTime(quote.returnFlight.departureAt)} ·{" "}
-              {formatAud(quote.returnPriceCents)}
+              {formatFlightTime(quote.returnFlight.departureAt)}
+              {quote.returnFareReleaseName
+                ? ` · ${quote.returnFareReleaseName}`
+                : ""}{" "}
+              · {formatAud(quote.returnPriceCents)}
             </p>
           )}
         </div>

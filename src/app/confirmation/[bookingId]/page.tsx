@@ -52,6 +52,10 @@ export default async function ConfirmationPage({
             </p>
           )}
           <p>
+            <span className="text-zinc-500">Fare</span>{" "}
+            {booking.fareReleaseName || "—"}
+          </p>
+          <p>
             <span className="text-zinc-500">Seats</span> {booking.seatsBooked}
           </p>
           <p>

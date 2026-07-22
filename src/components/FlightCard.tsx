@@ -15,12 +15,14 @@ type FlightCardProps = {
   totalSeats: number;
   displayPriceCents: number;
   basePriceCents: number;
+  fareReleaseName?: string | null;
+  farePriced?: boolean;
   href: string;
   ctaLabel?: string;
 };
 
 export function FlightCard(props: FlightCardProps) {
-  const soldOut = props.remainingSeats < 1;
+  const soldOut = props.remainingSeats < 1 || props.farePriced === false;
   const scarce = props.remainingSeats / props.totalSeats <= 0.2;
 
   return (
@@ -39,23 +41,36 @@ export function FlightCard(props: FlightCardProps) {
           Departs {formatFlightTime(props.departureAt)} · Arrives{" "}
           {formatFlightTime(props.arrivalAt)}
         </p>
+        {props.fareReleaseName && (
+          <p className="text-sm font-medium text-accent">
+            {props.fareReleaseName}
+          </p>
+        )}
         <p
           className={`text-sm ${soldOut ? "text-red-700" : scarce ? "text-amber-700" : "text-zinc-500"}`}
         >
-          {soldOut
+          {props.remainingSeats < 1
             ? "Sold out"
-            : `${props.remainingSeats} of ${props.totalSeats} seats left`}
+            : props.farePriced === false
+              ? "Awaiting fare price"
+              : `${props.remainingSeats} of ${props.totalSeats} seats left`}
         </p>
       </div>
       <div className="flex flex-col items-start gap-2 sm:items-end">
         <div className="text-right">
-          <p className="text-xl font-semibold text-zinc-900">
-            {formatAud(props.displayPriceCents)}
-          </p>
-          {props.displayPriceCents !== props.basePriceCents && (
-            <p className="text-xs text-zinc-500">
-              Base {formatAud(props.basePriceCents)} · auto-adjusted
-            </p>
+          {props.farePriced === false ? (
+            <p className="text-lg font-semibold text-zinc-500">Price TBA</p>
+          ) : (
+            <>
+              <p className="text-xl font-semibold text-zinc-900">
+                {formatAud(props.displayPriceCents)}
+              </p>
+              {props.displayPriceCents !== props.basePriceCents && (
+                <p className="text-xs text-zinc-500">
+                  Ticket {formatAud(props.basePriceCents)} · live fare
+                </p>
+              )}
+            </>
           )}
         </div>
         {soldOut ? (

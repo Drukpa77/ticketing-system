@@ -45,6 +45,7 @@ export default async function FlightsPage({
   if (isRoundTrip && outboundId) {
     const outbound = await prisma.flight.findFirst({
       where: { id: outboundId, active: true },
+      include: { fareReleases: { orderBy: { sortOrder: "asc" } } },
     });
     if (!outbound) {
       return (
@@ -69,6 +70,7 @@ export default async function FlightsPage({
           lte: windowEnd,
         },
       },
+      include: { fareReleases: { orderBy: { sortOrder: "asc" } } },
       orderBy: { departureAt: "asc" },
     });
 
@@ -134,8 +136,14 @@ export default async function FlightsPage({
                     outboundPrice.displayPriceCents + price.displayPriceCents
                   }
                   basePriceCents={
-                    outbound.basePriceCents + flight.basePriceCents
+                    outboundPrice.basePriceCents + price.basePriceCents
                   }
+                  fareReleaseName={
+                    [outboundPrice.fareReleaseName, price.fareReleaseName]
+                      .filter(Boolean)
+                      .join(" + ") || null
+                  }
+                  farePriced={outboundPrice.farePriced && price.farePriced}
                   href={`/flights/trip?${params.toString()}`}
                   ctaLabel="Review round trip"
                 />
@@ -156,6 +164,7 @@ export default async function FlightsPage({
       destination,
       departureAt: { gte: windowStart, lte: windowEnd },
     },
+    include: { fareReleases: { orderBy: { sortOrder: "asc" } } },
     orderBy: { departureAt: "asc" },
   });
 
@@ -221,6 +230,8 @@ export default async function FlightsPage({
                 totalSeats={flight.totalSeats}
                 displayPriceCents={price.displayPriceCents}
                 basePriceCents={price.basePriceCents}
+                fareReleaseName={price.fareReleaseName}
+                farePriced={price.farePriced}
                 href={href}
                 ctaLabel={isRoundTrip ? "Select outbound" : "View"}
               />

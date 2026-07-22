@@ -9,9 +9,7 @@ datasource db {
 
 enum CabinClass {
   economy
-  premium_economy
   business
-  first
 }
 
 enum TripType {
@@ -44,15 +42,16 @@ model Flight {
   destination    String
   departureAt    DateTime
   arrivalAt      DateTime
-  cabinClass     CabinClass @default(economy)
-  basePriceCents Int
+  cabinClass     CabinClass @default(business)
   currency       String     @default("AUD")
+  /// Sum of fare-release seat pools (kept in sync for search/scarcity)
   totalSeats     Int
   remainingSeats Int
   active         Boolean    @default(true)
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
+  fareReleases   FareRelease[]
   demandEvents   DemandEvent[]
   quotes         PriceQuote[]  @relation("OutboundQuotes")
   returnQuotes   PriceQuote[]  @relation("ReturnQuotes")
@@ -61,6 +60,27 @@ model Flight {
 
   @@index([origin, destination, departureAt])
   @@index([active])
+}
+
+/// Fare bucket sold in order (Early Bird → Standard → Final Release).
+model FareRelease {
+  id             String @id @default(cuid())
+  flightId       String
+  flight         Flight @relation(fields: [flightId], references: [id], onDelete: Cascade)
+  name           String
+  sortOrder      Int
+  totalSeats     Int
+  remainingSeats Int
+  /// Admin-controlled ticket price for this release (cents). 0 = not priced yet.
+  priceCents     Int    @default(0)
+  active         Boolean @default(true)
+
+  quotes         PriceQuote[] @relation("OutboundFare")
+  returnQuotes   PriceQuote[] @relation("ReturnFare")
+  bookings       Booking[]    @relation("OutboundFareBooking")
+  returnBookings Booking[]    @relation("ReturnFareBooking")
+
+  @@index([flightId, sortOrder])
 }
 
 model DemandEvent {
@@ -79,14 +99,20 @@ model PriceQuote {
   id                     String      @id @default(cuid())
   flightId               String
   flight                 Flight      @relation("OutboundQuotes", fields: [flightId], references: [id], onDelete: Cascade)
+  fareReleaseId          String?
+  fareRelease            FareRelease? @relation("OutboundFare", fields: [fareReleaseId], references: [id])
   returnFlightId         String?
   returnFlight           Flight?     @relation("ReturnQuotes", fields: [returnFlightId], references: [id], onDelete: Cascade)
+  returnFareReleaseId    String?
+  returnFareRelease      FareRelease? @relation("ReturnFare", fields: [returnFareReleaseId], references: [id])
   tripType               TripType    @default(one_way)
   sessionId              String
   quotedPriceCents       Int
   outboundPriceCents     Int
   returnPriceCents       Int         @default(0)
   basePriceSnapshotCents Int
+  fareReleaseName        String      @default("")
+  returnFareReleaseName  String      @default("")
   demandMultiplier       Float
   scarcityMultiplier     Float
   baseMarkup             Float
@@ -101,21 +127,26 @@ model PriceQuote {
 }
 
 model Booking {
-  id              String        @id @default(cuid())
-  quoteId         String        @unique
-  quote           PriceQuote    @relation(fields: [quoteId], references: [id])
-  flightId        String
-  flight          Flight        @relation("OutboundBookings", fields: [flightId], references: [id])
-  returnFlightId  String?
-  returnFlight    Flight?       @relation("ReturnBookings", fields: [returnFlightId], references: [id])
-  tripType        TripType      @default(one_way)
-  passengerName   String
-  email           String
-  seatsBooked     Int           @default(1)
-  amountPaidCents Int
-  status          BookingStatus @default(confirmed)
-  bookingRef      String        @unique
-  createdAt       DateTime      @default(now())
+  id                 String        @id @default(cuid())
+  quoteId            String        @unique
+  quote              PriceQuote    @relation(fields: [quoteId], references: [id])
+  flightId           String
+  flight             Flight        @relation("OutboundBookings", fields: [flightId], references: [id])
+  fareReleaseId      String?
+  fareRelease        FareRelease?  @relation("OutboundFareBooking", fields: [fareReleaseId], references: [id])
+  returnFlightId     String?
+  returnFlight       Flight?       @relation("ReturnBookings", fields: [returnFlightId], references: [id])
+  returnFareReleaseId String?
+  returnFareRelease  FareRelease?  @relation("ReturnFareBooking", fields: [returnFareReleaseId], references: [id])
+  tripType           TripType      @default(one_way)
+  passengerName      String
+  email              String
+  seatsBooked        Int           @default(1)
+  amountPaidCents    Int
+  fareReleaseName    String        @default("")
+  status             BookingStatus @default(confirmed)
+  bookingRef         String        @unique
+  createdAt          DateTime      @default(now())
 
   @@index([flightId])
   @@index([email])
@@ -128,9 +159,7 @@ model PricingConfig {
   demandWindowMinutes Int      @default(45)
   quoteTtlMinutes     Int      @default(15)
   maxUplift           Float    @default(0.25)
-  /// [{ maxScore: number, multiplier: number }] ascending by maxScore
   demandBands         Json
-  /// [{ maxRatio: number, multiplier: number }] ascending by maxRatio (remaining/total)
   scarcityBands       Json
   updatedAt           DateTime @updatedAt
 }

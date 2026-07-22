@@ -51,6 +51,14 @@ export const adminLoginSchema = z.object({
   password: z.string().min(1),
 });
 
+export const fareReleaseInputSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  totalSeats: z.coerce.number().int().min(0).max(800),
+  remainingSeats: z.coerce.number().int().min(0).max(800).optional(),
+  priceAud: z.coerce.number().min(0).max(100000),
+  sortOrder: z.coerce.number().int().min(1).max(20),
+});
+
 export const flightFormSchema = z.object({
   airline: z.string().trim().min(2, "Airline is required").max(80),
   flightNumber: z.string().trim().min(2, "Flight number is required").max(16),
@@ -66,14 +74,40 @@ export const flightFormSchema = z.object({
     .transform((v) => v.toUpperCase()),
   departureAt: z.string().min(1, "Departure date/time required"),
   arrivalAt: z.string().min(1, "Arrival date/time required"),
-  cabinClass: z.enum(["economy", "premium_economy", "business", "first"]),
-  basePriceAud: z.coerce
-    .number()
-    .positive("Ticket price must be greater than 0")
-    .max(100000),
-  totalSeats: z.coerce.number().int().min(1).max(800),
-  remainingSeats: z.coerce.number().int().min(0).max(800).optional(),
-  active: z
-    .union([z.literal("on"), z.literal("true"), z.literal("false"), z.null()])
-    .optional(),
+  cabinClass: z.enum(["economy", "business"]),
 });
+
+export function parseFareReleasesFromForm(formData: FormData) {
+  const names = formData.getAll("fareName").map(String);
+  const totals = formData.getAll("fareTotalSeats").map(String);
+  const remainings = formData.getAll("fareRemainingSeats").map(String);
+  const prices = formData.getAll("farePriceAud").map(String);
+  const orders = formData.getAll("fareSortOrder").map(String);
+
+  const releases = names.map((name, i) =>
+    fareReleaseInputSchema.parse({
+      name,
+      totalSeats: totals[i] ?? "0",
+      remainingSeats: remainings[i] || totals[i] || "0",
+      priceAud: prices[i] || "0",
+      sortOrder: orders[i] || String(i + 1),
+    }),
+  );
+
+  if (releases.length === 0) {
+    throw new Error("Add at least one fare release");
+  }
+
+  const seatSum = releases.reduce((s, r) => s + r.totalSeats, 0);
+  if (seatSum < 1) {
+    throw new Error("Total seats across fare releases must be at least 1");
+  }
+
+  return releases.map((r) => ({
+    name: r.name,
+    sortOrder: r.sortOrder,
+    totalSeats: r.totalSeats,
+    remainingSeats: Math.min(r.remainingSeats ?? r.totalSeats, r.totalSeats),
+    priceCents: Math.round(r.priceAud * 100),
+  }));
+}

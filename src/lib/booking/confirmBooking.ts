@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getCurrentFareRelease } from "@/lib/fares/current";
 import { getPricingConfig, priceFlight } from "@/lib/pricing/service";
 
 export async function createPriceQuote(input: {
@@ -10,16 +11,27 @@ export async function createPriceQuote(input: {
 
   const flight = await prisma.flight.findFirst({
     where: { id: input.flightId, active: true },
+    include: { fareReleases: { orderBy: { sortOrder: "asc" } } },
   });
   if (!flight) return { ok: false as const, error: "Outbound flight not found" };
   if (flight.remainingSeats < 1) {
     return { ok: false as const, error: "Outbound flight is sold out" };
   }
 
+  const outboundCurrent = getCurrentFareRelease(flight.fareReleases);
+  if (!outboundCurrent || outboundCurrent.priceCents <= 0) {
+    return {
+      ok: false as const,
+      error: "Outbound fare is not priced yet — ask admin to set release prices",
+    };
+  }
+
   let returnFlight = null;
+  let returnCurrent = null;
   if (input.returnFlightId) {
     returnFlight = await prisma.flight.findFirst({
       where: { id: input.returnFlightId, active: true },
+      include: { fareReleases: { orderBy: { sortOrder: "asc" } } },
     });
     if (!returnFlight) {
       return { ok: false as const, error: "Return flight not found" };
@@ -42,11 +54,25 @@ export async function createPriceQuote(input: {
         error: "Return flight must match the reverse route",
       };
     }
+    returnCurrent = getCurrentFareRelease(returnFlight.fareReleases);
+    if (!returnCurrent || returnCurrent.priceCents <= 0) {
+      return {
+        ok: false as const,
+        error: "Return fare is not priced yet — ask admin to set release prices",
+      };
+    }
   }
 
   const config = getPricingConfig();
   const outboundPrice = await priceFlight(flight);
   const returnPrice = returnFlight ? await priceFlight(returnFlight) : null;
+  if (!outboundPrice.farePriced) {
+    return { ok: false as const, error: "Outbound fare is not available" };
+  }
+  if (returnFlight && returnPrice && !returnPrice.farePriced) {
+    return { ok: false as const, error: "Return fare is not available" };
+  }
+
   const outboundCents = outboundPrice.displayPriceCents;
   const returnCents = returnPrice?.displayPriceCents ?? 0;
   const totalCents = outboundCents + returnCents;
@@ -56,14 +82,18 @@ export async function createPriceQuote(input: {
     const created = await tx.priceQuote.create({
       data: {
         flightId: flight.id,
+        fareReleaseId: outboundCurrent.id,
+        fareReleaseName: outboundCurrent.name,
         returnFlightId: returnFlight?.id,
+        returnFareReleaseId: returnCurrent?.id,
+        returnFareReleaseName: returnCurrent?.name ?? "",
         tripType,
         sessionId: input.sessionId,
         quotedPriceCents: totalCents,
         outboundPriceCents: outboundCents,
         returnPriceCents: returnCents,
         basePriceSnapshotCents:
-          flight.basePriceCents + (returnFlight?.basePriceCents ?? 0),
+          outboundCurrent.priceCents + (returnCurrent?.priceCents ?? 0),
         demandMultiplier: outboundPrice.demandMultiplier,
         scarcityMultiplier: outboundPrice.scarcityMultiplier,
         baseMarkup: outboundPrice.baseMarkup,
@@ -95,16 +125,25 @@ export async function createPriceQuote(input: {
   return { ok: true as const, quote };
 }
 
-async function decrementSeats(
+async function decrementFareAndFlight(
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
   flightId: string,
+  fareReleaseId: string,
   seats: number,
 ) {
-  const updated = await tx.flight.updateMany({
+  const fareUpdated = await tx.fareRelease.updateMany({
+    where: { id: fareReleaseId, remainingSeats: { gte: seats } },
+    data: { remainingSeats: { decrement: seats } },
+  });
+  if (fareUpdated.count !== 1) {
+    throw new Error("Not enough seats in this fare release");
+  }
+
+  const flightUpdated = await tx.flight.updateMany({
     where: { id: flightId, remainingSeats: { gte: seats } },
     data: { remainingSeats: { decrement: seats } },
   });
-  if (updated.count !== 1) {
+  if (flightUpdated.count !== 1) {
     throw new Error("Not enough seats remaining");
   }
 }
@@ -135,6 +174,7 @@ export async function confirmBooking(input: {
         throw new Error("Quote has expired — please book again");
       }
       if (quote.status !== "active") throw new Error("Quote is not active");
+      if (!quote.fareReleaseId) throw new Error("Quote missing fare release");
 
       const flight = await tx.flight.findUnique({
         where: { id: quote.flightId },
@@ -149,11 +189,24 @@ export async function confirmBooking(input: {
         if (!returnFlight || !returnFlight.active) {
           throw new Error("Return flight not available");
         }
+        if (!quote.returnFareReleaseId) {
+          throw new Error("Return fare release missing");
+        }
       }
 
-      await decrementSeats(tx, flight.id, input.seatsBooked);
-      if (returnFlight) {
-        await decrementSeats(tx, returnFlight.id, input.seatsBooked);
+      await decrementFareAndFlight(
+        tx,
+        flight.id,
+        quote.fareReleaseId,
+        input.seatsBooked,
+      );
+      if (returnFlight && quote.returnFareReleaseId) {
+        await decrementFareAndFlight(
+          tx,
+          returnFlight.id,
+          quote.returnFareReleaseId,
+          input.seatsBooked,
+        );
       }
 
       await tx.priceQuote.update({
@@ -188,7 +241,10 @@ export async function confirmBooking(input: {
         data: {
           quoteId: quote.id,
           flightId: flight.id,
+          fareReleaseId: quote.fareReleaseId,
+          fareReleaseName: quote.fareReleaseName,
           returnFlightId: returnFlight?.id,
+          returnFareReleaseId: quote.returnFareReleaseId,
           tripType: quote.tripType,
           passengerName: input.passengerName,
           email: input.email,

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getCurrentFareRelease } from "@/lib/fares/current";
 import {
   calculatePrice,
   computeDemandScore,
@@ -25,24 +26,70 @@ export async function getDemandScoreForFlight(
   return computeDemandScore(events);
 }
 
+export type FlightPriceResult = PriceBreakdown & {
+  fareReleaseId: string | null;
+  fareReleaseName: string | null;
+  farePriced: boolean;
+};
+
 export async function priceFlight(flight: {
   id: string;
-  basePriceCents: number;
   remainingSeats: number;
   totalSeats: number;
-}): Promise<PriceBreakdown> {
+  fareReleases?: {
+    id: string;
+    name: string;
+    sortOrder: number;
+    totalSeats: number;
+    remainingSeats: number;
+    priceCents: number;
+    active: boolean;
+  }[];
+}): Promise<FlightPriceResult> {
+  const releases =
+    flight.fareReleases ??
+    (await prisma.fareRelease.findMany({
+      where: { flightId: flight.id },
+      orderBy: { sortOrder: "asc" },
+    }));
+
+  const current = getCurrentFareRelease(releases);
   const config = getPricingConfig();
   const demandScore = await getDemandScoreForFlight(
     flight.id,
     config.demandWindowMinutes,
   );
-  return calculatePrice({
-    basePriceCents: flight.basePriceCents,
+
+  if (!current || current.priceCents <= 0) {
+    return {
+      basePriceCents: 0,
+      displayPriceCents: 0,
+      baseMarkup: config.baseMarkup,
+      demandMultiplier: 1,
+      scarcityMultiplier: 1,
+      demandScore,
+      remainingSeats: flight.remainingSeats,
+      totalSeats: flight.totalSeats,
+      fareReleaseId: current?.id ?? null,
+      fareReleaseName: current?.name ?? null,
+      farePriced: false,
+    };
+  }
+
+  const breakdown = calculatePrice({
+    basePriceCents: current.priceCents,
     remainingSeats: flight.remainingSeats,
     totalSeats: flight.totalSeats,
     demandScore,
     config,
   });
+
+  return {
+    ...breakdown,
+    fareReleaseId: current.id,
+    fareReleaseName: current.name,
+    farePriced: true,
+  };
 }
 
 export async function recordDemandEvent(

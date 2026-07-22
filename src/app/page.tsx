@@ -27,13 +27,17 @@ async function getSearchAirports() {
 async function getPopularRoutes() {
   const flights = await prisma.flight.findMany({
     where: { active: true },
-    orderBy: { basePriceCents: "asc" },
     select: {
       origin: true,
       destination: true,
-      basePriceCents: true,
       remainingSeats: true,
       totalSeats: true,
+      fareReleases: {
+        where: { active: true, remainingSeats: { gt: 0 }, priceCents: { gt: 0 } },
+        orderBy: { sortOrder: "asc" },
+        take: 1,
+        select: { priceCents: true },
+      },
     },
   });
 
@@ -49,6 +53,8 @@ async function getPopularRoutes() {
   >();
 
   for (const flight of flights) {
+    const price = flight.fareReleases[0]?.priceCents;
+    if (!price) continue;
     const key = `${flight.origin}-${flight.destination}`;
     const existing = byRoute.get(key);
     const lowStock = flight.remainingSeats / flight.totalSeats <= 0.2;
@@ -56,13 +62,13 @@ async function getPopularRoutes() {
       byRoute.set(key, {
         origin: flight.origin,
         destination: flight.destination,
-        fromCents: flight.basePriceCents,
+        fromCents: price,
         flightCount: 1,
         lowStock,
       });
     } else {
       existing.flightCount += 1;
-      existing.fromCents = Math.min(existing.fromCents, flight.basePriceCents);
+      existing.fromCents = Math.min(existing.fromCents, price);
       existing.lowStock = existing.lowStock || lowStock;
     }
   }

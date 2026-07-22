@@ -16,8 +16,14 @@ export default async function TripReviewPage({
   if (!outboundId || !returnId) notFound();
 
   const [outbound, returnFlight] = await Promise.all([
-    prisma.flight.findFirst({ where: { id: outboundId, active: true } }),
-    prisma.flight.findFirst({ where: { id: returnId, active: true } }),
+    prisma.flight.findFirst({
+      where: { id: outboundId, active: true },
+      include: { fareReleases: { orderBy: { sortOrder: "asc" } } },
+    }),
+    prisma.flight.findFirst({
+      where: { id: returnId, active: true },
+      include: { fareReleases: { orderBy: { sortOrder: "asc" } } },
+    }),
   ]);
   if (!outbound || !returnFlight) notFound();
 
@@ -31,7 +37,10 @@ export default async function TripReviewPage({
   ]);
   const total = outPrice.displayPriceCents + retPrice.displayPriceCents;
   const soldOut =
-    outbound.remainingSeats < 1 || returnFlight.remainingSeats < 1;
+    outbound.remainingSeats < 1 ||
+    returnFlight.remainingSeats < 1 ||
+    !outPrice.farePriced ||
+    !retPrice.farePriced;
   const maxSeats = Math.min(
     outbound.remainingSeats,
     returnFlight.remainingSeats,
@@ -61,8 +70,11 @@ export default async function TripReviewPage({
             </p>
             <p className="text-zinc-500">
               {formatFlightTime(outbound.departureAt)} ·{" "}
-              {cabinLabel(outbound.cabinClass)} ·{" "}
-              {formatAud(outPrice.displayPriceCents)}
+              {cabinLabel(outbound.cabinClass)}
+              {outPrice.fareReleaseName
+                ? ` · ${outPrice.fareReleaseName}`
+                : ""}{" "}
+              · {outPrice.farePriced ? formatAud(outPrice.displayPriceCents) : "TBA"}
             </p>
           </div>
           <div>
@@ -74,8 +86,11 @@ export default async function TripReviewPage({
             </p>
             <p className="text-zinc-500">
               {formatFlightTime(returnFlight.departureAt)} ·{" "}
-              {cabinLabel(returnFlight.cabinClass)} ·{" "}
-              {formatAud(retPrice.displayPriceCents)}
+              {cabinLabel(returnFlight.cabinClass)}
+              {retPrice.fareReleaseName
+                ? ` · ${retPrice.fareReleaseName}`
+                : ""}{" "}
+              · {retPrice.farePriced ? formatAud(retPrice.displayPriceCents) : "TBA"}
             </p>
           </div>
         </div>

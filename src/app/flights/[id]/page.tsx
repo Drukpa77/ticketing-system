@@ -15,13 +15,14 @@ export default async function FlightDetailPage({
   const { id } = await params;
   const flight = await prisma.flight.findFirst({
     where: { id, active: true },
+    include: { fareReleases: { orderBy: { sortOrder: "asc" } } },
   });
   if (!flight) notFound();
 
   const sessionId = await getSessionId();
   await recordDemandEvent(flight.id, "view", sessionId);
   const price = await priceFlight(flight);
-  const soldOut = flight.remainingSeats < 1;
+  const soldOut = flight.remainingSeats < 1 || !price.farePriced;
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-12">
@@ -31,7 +32,8 @@ export default async function FlightDetailPage({
 
       <div className="mt-6 border border-zinc-300 bg-white p-6">
         <p className="text-sm uppercase tracking-wide text-zinc-500">
-          {flight.airline} · {flight.flightNumber} · {cabinLabel(flight.cabinClass)} · One way
+          {flight.airline} · {flight.flightNumber} ·{" "}
+          {cabinLabel(flight.cabinClass)} · One way
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">
           {airportLabel(flight.origin)} → {airportLabel(flight.destination)}
@@ -42,20 +44,52 @@ export default async function FlightDetailPage({
           Arrives {formatFlightTime(flight.arrivalAt)}
         </p>
 
+        <div className="mt-6 border-t border-zinc-200 pt-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+            Fare releases
+          </p>
+          <ul className="mt-3 space-y-2 text-sm">
+            {flight.fareReleases.map((r) => (
+              <li key={r.id} className="flex justify-between gap-4">
+                <span>
+                  {r.name}
+                  <span className="text-zinc-500">
+                    {" "}
+                    · {r.remainingSeats}/{r.totalSeats} seats
+                  </span>
+                  {price.fareReleaseId === r.id && (
+                    <span className="ml-2 text-accent">Selling now</span>
+                  )}
+                </span>
+                <span className="font-medium">
+                  {r.priceCents > 0 ? formatAud(r.priceCents) : "TBA"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
         <div className="mt-8 grid gap-6 border-t border-zinc-200 pt-6 sm:grid-cols-2">
           <div>
-            <p className="text-sm text-zinc-500">Live fare (AUD)</p>
+            <p className="text-sm text-zinc-500">
+              Live fare
+              {price.fareReleaseName ? ` · ${price.fareReleaseName}` : ""}
+            </p>
             <p className="text-3xl font-semibold">
-              {formatAud(price.displayPriceCents)}
+              {price.farePriced ? formatAud(price.displayPriceCents) : "TBA"}
             </p>
-            <p className="mt-1 text-sm text-zinc-500">
-              Base ticket {formatAud(price.basePriceCents)} — system adjusts
-              automatically for demand and seats left
-            </p>
+            {price.farePriced && (
+              <p className="mt-1 text-sm text-zinc-500">
+                Ticket {formatAud(price.basePriceCents)} — adjusts with demand
+                and seats left
+              </p>
+            )}
             <p className="mt-3 text-sm text-zinc-600">
-              {soldOut
+              {flight.remainingSeats < 1
                 ? "Sold out"
-                : `${flight.remainingSeats} of ${flight.totalSeats} seats remaining`}
+                : !price.farePriced
+                  ? "Admin has not set a price for the current release yet"
+                  : `${flight.remainingSeats} of ${flight.totalSeats} seats remaining`}
             </p>
           </div>
           <div className="space-y-3">
