@@ -7,7 +7,7 @@ Public demo for a travel-agent consultancy: simulated flight inventory with **ru
 - Next.js (App Router) + TypeScript + Tailwind
 - Prisma 7 + PostgreSQL
 - Zod validation
-- Deploy target: Railway (web service + Postgres). No Docker required for deploy.
+- Deploy target: Vercel (app) + hosted Postgres (Neon/Supabase/Railway). No Docker required.
 
 ## Setup
 
@@ -17,7 +17,7 @@ Public demo for a travel-agent consultancy: simulated flight inventory with **ru
 cp .env.example .env
 ```
 
-2. Set `DATABASE_URL` to your Postgres connection string (Railway Postgres or any Postgres).
+2. Set `DATABASE_URL` to your Postgres connection string.
 3. Set `ADMIN_PASSWORD` for `/admin`.
 
 4. Install and prepare the database:
@@ -62,7 +62,7 @@ displayPrice = clamp(
 - Add / edit flights (route, times, seats, base price)
 - Hide/show flights
 - View bookings
-- No pricing-math config — the system adjusts fares automatically
+- Price analytics by destination / ticket type / route
 
 ## Demo routes to try
 
@@ -73,31 +73,26 @@ Seeded examples (dates are relative to seed time — pick a date within ~2 weeks
 - `SYD` → `SIN`
 - `MEL` → `LAX`
 
-## Railway deploy
+## Vercel deploy
 
-1. Create a Railway project.
-2. Add a **PostgreSQL** plugin.
-3. Add a **Web** service from this GitHub repo.
-4. Set variables on the web service:
-   - `DATABASE_URL` — from the Postgres plugin
-   - `ADMIN_PASSWORD` — choose a strong password
-5. Set the release / deploy command to run migrations before start, e.g.:
+1. Push this repo to GitHub.
+2. Import the project in Vercel.
+3. Create a hosted Postgres database and set:
+   - `DATABASE_URL`
+   - `ADMIN_PASSWORD`
+4. Recommended build command:
 
 ```bash
-npx prisma migrate deploy && npm run start
+prisma generate && prisma migrate deploy && next build
 ```
 
-Or configure Railway’s **Release Command** as `npx prisma migrate deploy` and **Start Command** as `npm run start`.
-
-6. Seed once after first deploy (one-off):
+5. After first deploy, seed once:
 
 ```bash
 npm run db:seed
 ```
 
-(Run locally against the Railway `DATABASE_URL`, or use Railway’s shell/run.)
-
-Build already runs `prisma generate` via the `build` script.
+(Use your production `DATABASE_URL` locally for that one-off seed.)
 
 ## Out of scope (MVP)
 
@@ -105,7 +100,3 @@ Build already runs `prisma generate` via the `build` script.
 - Stripe payments
 - User accounts
 - ML pricing
-
-## Claim note for temporary Prisma DB
-
-If you used `create-db` for a temporary Postgres instance during local setup, claim or replace it with Railway Postgres before the temp DB expires.
