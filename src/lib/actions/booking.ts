@@ -20,7 +20,7 @@ export async function startCheckoutAction(
   if (!result.ok) {
     return { error: result.error };
   }
-  redirect("/cart");
+  redirect(`/checkout/${result.quote.id}/passengers`);
 }
 
 export async function startCheckoutFormAction(formData: FormData) {
@@ -53,7 +53,7 @@ export async function startCheckoutFormAction(formData: FormData) {
       );
     }
 
-    redirect(`/cart`);
+    redirect(`/checkout/${result.quote.id}/passengers`);
   } catch (error) {
     if (isRedirectError(error)) throw error;
     console.error("startCheckoutFormAction", error);

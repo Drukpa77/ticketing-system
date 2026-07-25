@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
-  generateInvoiceDocumentsAction,
+  generateInvoiceDocumentsModalAction,
   markInvoicePaidAction,
-  markInvoiceSentAction,
   markInvoiceUnpaidAction,
-  updateInvoiceDocumentAction,
+  saveInvoiceDocumentModalAction,
+  sendInvoiceEmailModalAction,
 } from "@/lib/actions/invoices";
 import { formatAud } from "@/lib/pricing";
 
@@ -34,6 +35,8 @@ export type AdminInvoiceRow = {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
+  passportNumber: string;
+  nationality: string;
   notes: string;
   bankReference: string | null;
   squarePaymentId: string | null;
@@ -45,6 +48,8 @@ export type AdminInvoiceRow = {
   bookingRef: string;
   bookingId: string;
 };
+
+type DocTab = "travel" | "airfare";
 
 function aud(cents: number) {
   return (cents / 100).toFixed(2);
@@ -61,12 +66,108 @@ function dueInputValue(iso: string | null) {
 const fieldClass =
   "w-full min-w-0 border-0 border-b border-line bg-transparent py-2 text-sm text-foreground outline-none transition focus:border-accent";
 
+function previewUrl(invoice: AdminInvoiceRow, tab: DocTab, bust: number) {
+  const base =
+    tab === "travel"
+      ? `/documents/eticket/${encodeURIComponent(invoice.bookingRef)}`
+      : `/documents/invoice/${encodeURIComponent(invoice.invoiceNumber)}`;
+  return `${base}?preview=${bust}`;
+}
+
 export function InvoiceAdminPanel({ invoices }: { invoices: AdminInvoiceRow[] }) {
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const editing = useMemo(
-    () => invoices.find((i) => i.id === editingId) ?? null,
-    [editingId, invoices],
+  const router = useRouter();
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [docTab, setDocTab] = useState<DocTab>("travel");
+  const [previewBust, setPreviewBust] = useState(0);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const active = useMemo(
+    () => invoices.find((i) => i.id === activeId) ?? null,
+    [activeId, invoices],
   );
+
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setActiveId(null);
+    };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [active]);
+
+  function openEditor(invoiceId: string, tab: DocTab) {
+    setActiveId(invoiceId);
+    setDocTab(tab);
+    setPreviewBust(Date.now());
+    setStatusMsg(null);
+    setErrorMsg(null);
+  }
+
+  function closeEditor() {
+    setActiveId(null);
+    setStatusMsg(null);
+    setErrorMsg(null);
+  }
+
+  function refreshPreview() {
+    setPreviewBust(Date.now());
+    router.refresh();
+  }
+
+  function onSave(formData: FormData) {
+    setStatusMsg(null);
+    setErrorMsg(null);
+    startTransition(async () => {
+      const result = await saveInvoiceDocumentModalAction(formData);
+      if (!result.ok) {
+        setErrorMsg(result.error);
+        return;
+      }
+      setStatusMsg("Saved — preview updated.");
+      refreshPreview();
+    });
+  }
+
+  function onGenerate() {
+    if (!active) return;
+    setStatusMsg(null);
+    setErrorMsg(null);
+    startTransition(async () => {
+      const result = await generateInvoiceDocumentsModalAction(active.id);
+      if (!result.ok) {
+        setErrorMsg(result.error);
+        return;
+      }
+      setStatusMsg("Both documents generated / refreshed.");
+      refreshPreview();
+    });
+  }
+
+  function onSend() {
+    if (!active) return;
+    setStatusMsg(null);
+    setErrorMsg(null);
+    startTransition(async () => {
+      const result = await sendInvoiceEmailModalAction(active.id);
+      if (!result.ok) {
+        setErrorMsg(result.error);
+        return;
+      }
+      setStatusMsg(
+        result.warning
+          ? result.warning
+          : "Email sent with travel document and airfare invoice.",
+      );
+      router.refresh();
+    });
+  }
 
   return (
     <section className="space-y-6">
@@ -75,9 +176,8 @@ export function InvoiceAdminPanel({ invoices }: { invoices: AdminInvoiceRow[] })
           Invoices
         </h2>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          Each booking has two documents: the travel pack (E-Ticket / Itinerary /
-          Receipts / Tax Invoice) and the commercial Airfare Invoice. Preview,
-          edit line items, generate missing fields, and resend emails here.
+          Open a document popup to preview, edit the travel pack or airfare
+          invoice, generate both, and email them to the customer.
         </p>
       </div>
 
@@ -132,48 +232,33 @@ export function InvoiceAdminPanel({ invoices }: { invoices: AdminInvoiceRow[] })
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <a
-                    href={`/documents/eticket/${encodeURIComponent(invoice.bookingRef)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="border border-line px-3 py-2 text-sm font-medium text-muted transition hover:border-accent hover:text-foreground"
-                  >
-                    Preview travel doc
-                  </a>
-                  <a
-                    href={`/documents/invoice/${encodeURIComponent(invoice.invoiceNumber)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="border border-line px-3 py-2 text-sm font-medium text-muted transition hover:border-accent hover:text-foreground"
-                  >
-                    Preview airfare invoice
-                  </a>
                   <button
                     type="button"
-                    onClick={() =>
-                      setEditingId(
-                        editingId === invoice.id ? null : invoice.id,
-                      )
-                    }
+                    onClick={() => openEditor(invoice.id, "travel")}
                     className="border border-line px-3 py-2 text-sm font-medium text-muted transition hover:border-accent hover:text-foreground"
                   >
-                    {editingId === invoice.id ? "Close edit" : "Edit"}
+                    Travel doc
                   </button>
-                  <form action={generateInvoiceDocumentsAction}>
-                    <input type="hidden" name="id" value={invoice.id} />
-                    <button
-                      type="submit"
-                      className="border border-line px-3 py-2 text-sm font-medium text-muted transition hover:border-accent hover:text-foreground"
-                    >
-                      Generate
-                    </button>
-                  </form>
+                  <button
+                    type="button"
+                    onClick={() => openEditor(invoice.id, "airfare")}
+                    className="border border-line px-3 py-2 text-sm font-medium text-muted transition hover:border-accent hover:text-foreground"
+                  >
+                    Airfare invoice
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openEditor(invoice.id, "travel")}
+                    className="bg-accent-deep px-3 py-2 text-sm font-semibold text-white transition hover:bg-accent"
+                  >
+                    Edit / preview
+                  </button>
                   {invoice.status !== "paid" ? (
                     <form action={markInvoicePaidAction}>
                       <input type="hidden" name="id" value={invoice.id} />
                       <button
                         type="submit"
-                        className="bg-accent-deep px-3 py-2 text-sm font-semibold text-white transition hover:bg-accent"
+                        className="border border-line px-3 py-2 text-sm font-medium text-muted transition hover:border-accent hover:text-foreground"
                       >
                         Mark paid
                       </button>
@@ -189,227 +274,456 @@ export function InvoiceAdminPanel({ invoices }: { invoices: AdminInvoiceRow[] })
                       </button>
                     </form>
                   )}
-                  <form action={markInvoiceSentAction}>
-                    <input type="hidden" name="id" value={invoice.id} />
-                    <button
-                      type="submit"
-                      className="border border-line px-3 py-2 text-sm font-medium text-muted transition hover:border-accent hover:text-foreground"
-                    >
-                      {invoice.sentAt ? "Resend email" : "Send email"}
-                    </button>
-                  </form>
                 </div>
               </div>
-
-              {editing?.id === invoice.id && (
-                <form
-                  action={updateInvoiceDocumentAction}
-                  className="mt-5 space-y-4 border-t border-line pt-5"
-                >
-                  <input type="hidden" name="id" value={invoice.id} />
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
-                    Edit airfare invoice &amp; document fields
-                  </p>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <label className="block text-xs text-muted">
-                      Customer name
-                      <input
-                        name="customerName"
-                        required
-                        defaultValue={invoice.customerName}
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block text-xs text-muted">
-                      Email
-                      <input
-                        name="customerEmail"
-                        type="email"
-                        required
-                        defaultValue={invoice.customerEmail}
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block text-xs text-muted">
-                      Phone
-                      <input
-                        name="customerPhone"
-                        defaultValue={invoice.customerPhone}
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block text-xs text-muted">
-                      Airfare (AUD)
-                      <input
-                        name="airfareAud"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        defaultValue={aud(invoice.airfareCents || invoice.fareCents)}
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block text-xs text-muted">
-                      Airport taxes (AUD)
-                      <input
-                        name="airportTaxesAud"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        defaultValue={aud(invoice.airportTaxesCents)}
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block text-xs text-muted">
-                      Extra baggage (AUD)
-                      <input
-                        name="extraBaggageAud"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        defaultValue={aud(invoice.extraBaggageCents)}
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block text-xs text-muted">
-                      Travel insurance (AUD)
-                      <input
-                        name="travelInsuranceAud"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        defaultValue={aud(invoice.travelInsuranceCents)}
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block text-xs text-muted">
-                      Other charges (AUD)
-                      <input
-                        name="otherChargesAud"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        defaultValue={aud(invoice.otherChargesCents)}
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block text-xs text-muted">
-                      Payment surcharge (AUD)
-                      <input
-                        name="serviceFeeAud"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        defaultValue={aud(invoice.serviceFeeCents)}
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block text-xs text-muted">
-                      Account number
-                      <input
-                        name="accountNumber"
-                        defaultValue={invoice.accountNumber}
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block text-xs text-muted">
-                      Business TPN
-                      <input
-                        name="businessTpn"
-                        defaultValue={invoice.businessTpn}
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block text-xs text-muted">
-                      Route label
-                      <input
-                        name="routeLabel"
-                        defaultValue={invoice.routeLabel}
-                        placeholder="Paro-Perth-Paro"
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block text-xs text-muted">
-                      Seat label
-                      <input
-                        name="seatLabel"
-                        defaultValue={invoice.seatLabel}
-                        placeholder="12A"
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block text-xs text-muted">
-                      Name REF
-                      <input
-                        name="nameRef"
-                        defaultValue={invoice.nameRef}
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block text-xs text-muted">
-                      Due at
-                      <input
-                        name="dueAt"
-                        type="datetime-local"
-                        defaultValue={dueInputValue(invoice.dueAt)}
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="col-span-full block text-xs text-muted sm:col-span-2">
-                      Fare calculation line
-                      <input
-                        name="fareCalculationLine"
-                        defaultValue={invoice.fareCalculationLine}
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="col-span-full block text-xs text-muted sm:col-span-2">
-                      Endorsement / restrictions
-                      <input
-                        name="endorsementText"
-                        defaultValue={invoice.endorsementText}
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="col-span-full block text-xs text-muted">
-                      Notes
-                      <textarea
-                        name="notes"
-                        rows={2}
-                        defaultValue={invoice.notes}
-                        className={`${fieldClass} resize-y`}
-                      />
-                    </label>
-                    <label className="inline-flex items-center gap-2 text-sm text-foreground">
-                      <input
-                        type="checkbox"
-                        name="gstIncluded"
-                        defaultChecked={invoice.gstIncluded}
-                      />
-                      GST included in totals
-                    </label>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="submit"
-                      className="bg-accent-deep px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent"
-                    >
-                      Save invoice
-                    </button>
-                    <a
-                      href={`/confirmation/${invoice.bookingId}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="border border-line px-4 py-2 text-sm font-medium text-muted transition hover:border-accent hover:text-foreground"
-                    >
-                      Open confirmation
-                    </a>
-                  </div>
-                </form>
-              )}
             </li>
           ))}
         </ul>
+      )}
+
+      {active && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/45 p-0 sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="invoice-doc-modal-title"
+          onClick={closeEditor}
+        >
+          <div
+            className="flex max-h-[min(96svh,980px)] w-full max-w-6xl flex-col overflow-hidden rounded-t-2xl bg-white sm:rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-line px-4 py-4 sm:px-6">
+              <div className="min-w-0">
+                <p
+                  id="invoice-doc-modal-title"
+                  className="font-[family-name:var(--font-syne)] text-xl font-semibold tracking-tight"
+                >
+                  {active.invoiceNumber}
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  {active.customerName} · Booking {active.bookingRef}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeEditor}
+                aria-label="Close"
+                className="inline-flex size-10 items-center justify-center border border-line text-xl text-muted transition hover:border-accent hover:text-foreground"
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="flex shrink-0 gap-2 overflow-x-auto border-b border-line px-4 py-3 sm:px-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setDocTab("travel");
+                  setPreviewBust(Date.now());
+                }}
+                className={`px-3 py-2 text-sm font-semibold transition ${
+                  docTab === "travel"
+                    ? "bg-accent-deep text-white"
+                    : "border border-line text-muted hover:border-accent hover:text-foreground"
+                }`}
+              >
+                Travel document
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDocTab("airfare");
+                  setPreviewBust(Date.now());
+                }}
+                className={`px-3 py-2 text-sm font-semibold transition ${
+                  docTab === "airfare"
+                    ? "bg-accent-deep text-white"
+                    : "border border-line text-muted hover:border-accent hover:text-foreground"
+                }`}
+              >
+                Airfare invoice
+              </button>
+            </div>
+
+            {(statusMsg || errorMsg) && (
+              <div className="shrink-0 px-4 pt-3 sm:px-6">
+                {statusMsg && (
+                  <p className="text-sm text-accent-deep">{statusMsg}</p>
+                )}
+                {errorMsg && (
+                  <p className="text-sm text-red-700">{errorMsg}</p>
+                )}
+              </div>
+            )}
+
+            <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-2">
+              <form
+                key={`${active.id}-${previewBust}-form`}
+                action={onSave}
+                className="min-h-0 space-y-4 overflow-y-auto border-b border-line px-4 py-4 sm:px-6 lg:border-b-0 lg:border-r"
+              >
+                <input type="hidden" name="id" value={active.id} />
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
+                  {docTab === "travel"
+                    ? "Edit travel document fields"
+                    : "Edit airfare invoice fields"}
+                </p>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block text-xs text-muted sm:col-span-2">
+                    Passenger name
+                    <input
+                      name="customerName"
+                      required
+                      defaultValue={active.customerName}
+                      className={fieldClass}
+                    />
+                  </label>
+                  <label className="block text-xs text-muted">
+                    Email
+                    <input
+                      name="customerEmail"
+                      type="email"
+                      required
+                      defaultValue={active.customerEmail}
+                      className={fieldClass}
+                    />
+                  </label>
+                  <label className="block text-xs text-muted">
+                    Phone
+                    <input
+                      name="customerPhone"
+                      defaultValue={active.customerPhone}
+                      className={fieldClass}
+                    />
+                  </label>
+
+                  {docTab === "travel" ? (
+                    <>
+                      <label className="block text-xs text-muted">
+                        Passport number
+                        <input
+                          name="passportNumber"
+                          defaultValue={active.passportNumber}
+                          className={fieldClass}
+                        />
+                      </label>
+                      <label className="block text-xs text-muted">
+                        Nationality
+                        <input
+                          name="nationality"
+                          defaultValue={active.nationality}
+                          className={fieldClass}
+                        />
+                      </label>
+                      <label className="block text-xs text-muted">
+                        Seat
+                        <input
+                          name="seatLabel"
+                          defaultValue={active.seatLabel}
+                          placeholder="12A"
+                          className={fieldClass}
+                        />
+                      </label>
+                      <label className="block text-xs text-muted">
+                        Name REF
+                        <input
+                          name="nameRef"
+                          defaultValue={active.nameRef}
+                          className={fieldClass}
+                        />
+                      </label>
+                      <label className="block text-xs text-muted sm:col-span-2">
+                        Fare calculation line
+                        <input
+                          name="fareCalculationLine"
+                          defaultValue={active.fareCalculationLine}
+                          className={fieldClass}
+                        />
+                      </label>
+                      <label className="block text-xs text-muted sm:col-span-2">
+                        Endorsement / restrictions
+                        <input
+                          name="endorsementText"
+                          defaultValue={active.endorsementText}
+                          className={fieldClass}
+                        />
+                      </label>
+                      {/* Keep airfare values in form when editing travel tab */}
+                      <input
+                        type="hidden"
+                        name="airfareAud"
+                        value={aud(active.airfareCents || active.fareCents)}
+                      />
+                      <input
+                        type="hidden"
+                        name="airportTaxesAud"
+                        value={aud(active.airportTaxesCents)}
+                      />
+                      <input
+                        type="hidden"
+                        name="extraBaggageAud"
+                        value={aud(active.extraBaggageCents)}
+                      />
+                      <input
+                        type="hidden"
+                        name="travelInsuranceAud"
+                        value={aud(active.travelInsuranceCents)}
+                      />
+                      <input
+                        type="hidden"
+                        name="otherChargesAud"
+                        value={aud(active.otherChargesCents)}
+                      />
+                      <input
+                        type="hidden"
+                        name="serviceFeeAud"
+                        value={aud(active.serviceFeeCents)}
+                      />
+                      <input
+                        type="hidden"
+                        name="accountNumber"
+                        value={active.accountNumber}
+                      />
+                      <input
+                        type="hidden"
+                        name="businessTpn"
+                        value={active.businessTpn}
+                      />
+                      <input
+                        type="hidden"
+                        name="routeLabel"
+                        value={active.routeLabel}
+                      />
+                      <input
+                        type="hidden"
+                        name="dueAt"
+                        value={dueInputValue(active.dueAt)}
+                      />
+                      {active.gstIncluded ? (
+                        <input type="hidden" name="gstIncluded" value="on" />
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      <input
+                        type="hidden"
+                        name="passportNumber"
+                        value={active.passportNumber}
+                      />
+                      <input
+                        type="hidden"
+                        name="nationality"
+                        value={active.nationality}
+                      />
+                      <input
+                        type="hidden"
+                        name="seatLabel"
+                        value={active.seatLabel}
+                      />
+                      <input
+                        type="hidden"
+                        name="nameRef"
+                        value={active.nameRef}
+                      />
+                      <input
+                        type="hidden"
+                        name="fareCalculationLine"
+                        value={active.fareCalculationLine}
+                      />
+                      <input
+                        type="hidden"
+                        name="endorsementText"
+                        value={active.endorsementText}
+                      />
+                      <label className="block text-xs text-muted">
+                        Airfare (AUD)
+                        <input
+                          name="airfareAud"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          defaultValue={aud(
+                            active.airfareCents || active.fareCents,
+                          )}
+                          className={fieldClass}
+                        />
+                      </label>
+                      <label className="block text-xs text-muted">
+                        Airport taxes (AUD)
+                        <input
+                          name="airportTaxesAud"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          defaultValue={aud(active.airportTaxesCents)}
+                          className={fieldClass}
+                        />
+                      </label>
+                      <label className="block text-xs text-muted">
+                        Extra baggage (AUD)
+                        <input
+                          name="extraBaggageAud"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          defaultValue={aud(active.extraBaggageCents)}
+                          className={fieldClass}
+                        />
+                      </label>
+                      <label className="block text-xs text-muted">
+                        Travel insurance (AUD)
+                        <input
+                          name="travelInsuranceAud"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          defaultValue={aud(active.travelInsuranceCents)}
+                          className={fieldClass}
+                        />
+                      </label>
+                      <label className="block text-xs text-muted">
+                        Other charges (AUD)
+                        <input
+                          name="otherChargesAud"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          defaultValue={aud(active.otherChargesCents)}
+                          className={fieldClass}
+                        />
+                      </label>
+                      <label className="block text-xs text-muted">
+                        Payment surcharge (AUD)
+                        <input
+                          name="serviceFeeAud"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          defaultValue={aud(active.serviceFeeCents)}
+                          className={fieldClass}
+                        />
+                      </label>
+                      <label className="block text-xs text-muted">
+                        Account number
+                        <input
+                          name="accountNumber"
+                          defaultValue={active.accountNumber}
+                          className={fieldClass}
+                        />
+                      </label>
+                      <label className="block text-xs text-muted">
+                        Business TPN
+                        <input
+                          name="businessTpn"
+                          defaultValue={active.businessTpn}
+                          className={fieldClass}
+                        />
+                      </label>
+                      <label className="block text-xs text-muted">
+                        Route label
+                        <input
+                          name="routeLabel"
+                          defaultValue={active.routeLabel}
+                          placeholder="Paro-Perth-Paro"
+                          className={fieldClass}
+                        />
+                      </label>
+                      <label className="block text-xs text-muted">
+                        Due at
+                        <input
+                          name="dueAt"
+                          type="datetime-local"
+                          defaultValue={dueInputValue(active.dueAt)}
+                          className={fieldClass}
+                        />
+                      </label>
+                      <label className="inline-flex items-center gap-2 text-sm text-foreground sm:col-span-2">
+                        <input
+                          type="checkbox"
+                          name="gstIncluded"
+                          defaultChecked={active.gstIncluded}
+                        />
+                        GST included in totals
+                      </label>
+                    </>
+                  )}
+
+                  <label className="block text-xs text-muted sm:col-span-2">
+                    Notes
+                    <textarea
+                      name="notes"
+                      rows={2}
+                      defaultValue={active.notes}
+                      className={`${fieldClass} resize-y`}
+                    />
+                  </label>
+                </div>
+
+                <div className="flex flex-wrap gap-2 border-t border-line pt-4">
+                  <button
+                    type="submit"
+                    disabled={pending}
+                    className="bg-accent-deep px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent disabled:opacity-60"
+                  >
+                    {pending ? "Working…" : "Save & refresh preview"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={onGenerate}
+                    className="border border-line px-4 py-2 text-sm font-medium text-muted transition hover:border-accent hover:text-foreground disabled:opacity-60"
+                  >
+                    Generate both
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={onSend}
+                    className="border border-line px-4 py-2 text-sm font-medium text-muted transition hover:border-accent hover:text-foreground disabled:opacity-60"
+                  >
+                    {active.sentAt ? "Resend email" : "Send email"}
+                  </button>
+                  <a
+                    href={previewUrl(active, docTab, previewBust)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="border border-line px-4 py-2 text-sm font-medium text-muted transition hover:border-accent hover:text-foreground"
+                  >
+                    Open full page
+                  </a>
+                </div>
+              </form>
+
+              <div className="flex min-h-[40vh] flex-col bg-[#eef3f0] lg:min-h-0">
+                <div className="flex items-center justify-between gap-2 border-b border-line bg-white px-4 py-2 text-xs text-muted">
+                  <span>
+                    Live preview ·{" "}
+                    {docTab === "travel" ? "Travel document" : "Airfare invoice"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewBust(Date.now())}
+                    className="font-medium text-accent-deep hover:underline"
+                  >
+                    Reload
+                  </button>
+                </div>
+                <iframe
+                  key={`${active.id}-${docTab}-${previewBust}`}
+                  title={
+                    docTab === "travel"
+                      ? "Travel document preview"
+                      : "Airfare invoice preview"
+                  }
+                  src={previewUrl(active, docTab, previewBust)}
+                  className="min-h-0 w-full flex-1 bg-white"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   CheckoutShell,
   QuoteBlockedMessage,
@@ -18,11 +18,21 @@ export default async function CheckoutPage({
   const state = await getCheckoutQuoteState(quoteId);
   if (!state) notFound();
 
+  if (
+    state.available &&
+    (!state.quote.passengerEmail || !state.quote.passengerFirstName)
+  ) {
+    redirect(`/checkout/${quoteId}/passengers`);
+  }
+
   const square = getSquarePublicConfig();
   const bankConfigured = isBankTransferConfigured();
 
   return (
-    <CheckoutShell backHref="/" backLabel="Back to search">
+    <CheckoutShell
+      backHref={`/checkout/${quoteId}/passengers`}
+      backLabel="Back to passenger details"
+    >
       <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:gap-8">
         <div className="order-2 lg:order-1">
           <QuoteSummaryCard state={state} title="Checkout" />

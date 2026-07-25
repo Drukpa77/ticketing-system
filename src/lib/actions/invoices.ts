@@ -110,29 +110,20 @@ export async function markInvoiceSentAction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) redirect("/admin?tab=invoices&error=Missing+invoice");
 
-  const invoice = await prisma.invoice.findUnique({ where: { id } });
-  if (!invoice) redirect("/admin?tab=invoices&error=Invoice+not+found");
-
-  const result = await sendInvoiceEmailForBooking(invoice.bookingId);
-  if (!result.ok && !("skipped" in result && result.skipped)) {
+  const result = await sendInvoiceEmailModalAction(id);
+  if (!result.ok) {
     redirect(
       `/admin?tab=invoices&error=${encodeURIComponent(result.error)}`,
     );
   }
-  if (!result.ok && "skipped" in result && result.skipped) {
-    await prisma.invoice.update({
-      where: { id },
-      data: { sentAt: new Date() },
-    });
-    redirect(
-      `/admin?tab=invoices&saved=invoice-sent&error=${encodeURIComponent(
-        "Marked sent locally — configure RESEND_API_KEY or SMTP to actually email customers.",
-      )}`,
-    );
-  }
-
   revalidatePath("/admin");
-  redirect("/admin?tab=invoices&saved=invoice-sent");
+  redirect(
+    `/admin?tab=invoices&saved=invoice-sent${
+      result.warning
+        ? `&error=${encodeURIComponent(result.warning)}`
+        : ""
+    }`,
+  );
 }
 
 const updateSchema = z.object({
@@ -140,6 +131,8 @@ const updateSchema = z.object({
   customerName: z.string().trim().min(1).max(120),
   customerEmail: z.string().trim().email(),
   customerPhone: z.string().trim().max(40).optional().or(z.literal("")),
+  passportNumber: z.string().trim().max(40).optional().or(z.literal("")),
+  nationality: z.string().trim().max(60).optional().or(z.literal("")),
   notes: z.string().trim().max(2000).optional().or(z.literal("")),
   accountNumber: z.string().trim().max(80).optional().or(z.literal("")),
   businessTpn: z.string().trim().max(80).optional().or(z.literal("")),
@@ -152,14 +145,14 @@ const updateSchema = z.object({
   dueAt: z.string().optional().or(z.literal("")),
 });
 
-export async function updateInvoiceDocumentAction(formData: FormData) {
-  await requireAdmin();
-
-  const parsed = updateSchema.safeParse({
+function parseUpdateForm(formData: FormData) {
+  return updateSchema.safeParse({
     id: formData.get("id"),
     customerName: formData.get("customerName"),
     customerEmail: formData.get("customerEmail"),
     customerPhone: formData.get("customerPhone") || "",
+    passportNumber: formData.get("passportNumber") || "",
+    nationality: formData.get("nationality") || "",
     notes: formData.get("notes") || "",
     accountNumber: formData.get("accountNumber") || "",
     businessTpn: formData.get("businessTpn") || "",
@@ -171,19 +164,21 @@ export async function updateInvoiceDocumentAction(formData: FormData) {
     gstIncluded: formData.get("gstIncluded") === "on" ? "true" : "false",
     dueAt: formData.get("dueAt") || "",
   });
+}
 
+async function persistInvoiceDocument(formData: FormData) {
+  const parsed = parseUpdateForm(formData);
   if (!parsed.success) {
-    redirect(
-      `/admin?tab=invoices&error=${encodeURIComponent(
-        parsed.error.issues[0]?.message ?? "Invalid invoice",
-      )}`,
-    );
+    return {
+      ok: false as const,
+      error: parsed.error.issues[0]?.message ?? "Invalid invoice",
+    };
   }
 
   const existing = await prisma.invoice.findUnique({
     where: { id: parsed.data.id },
   });
-  if (!existing) redirect("/admin?tab=invoices&error=Invoice+not+found");
+  if (!existing) return { ok: false as const, error: "Invoice not found" };
 
   const airfareCents = moneyAud(formData.get("airfareAud"));
   const airportTaxesCents = moneyAud(formData.get("airportTaxesAud"));
@@ -242,6 +237,8 @@ export async function updateInvoiceDocumentAction(formData: FormData) {
       passengerName: parsed.data.customerName,
       email: parsed.data.customerEmail,
       passengerPhone: parsed.data.customerPhone || "",
+      passportNumber: parsed.data.passportNumber || "",
+      nationality: parsed.data.nationality || "",
       amountPaidCents: totals.amountCents,
       serviceFeeCents,
     },
@@ -249,22 +246,34 @@ export async function updateInvoiceDocumentAction(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath(`/confirmation/${existing.bookingId}`);
+  return { ok: true as const, bookingId: existing.bookingId };
+}
+
+/** Modal-friendly save (no redirect). */
+export async function saveInvoiceDocumentModalAction(formData: FormData) {
+  await requireAdmin();
+  return persistInvoiceDocument(formData);
+}
+
+export async function updateInvoiceDocumentAction(formData: FormData) {
+  await requireAdmin();
+  const result = await persistInvoiceDocument(formData);
+  if (!result.ok) {
+    redirect(
+      `/admin?tab=invoices&error=${encodeURIComponent(result.error)}`,
+    );
+  }
   redirect("/admin?tab=invoices&saved=invoice-updated");
 }
 
-/** Backfill document fields on an existing invoice (generate / refresh). */
-export async function generateInvoiceDocumentsAction(formData: FormData) {
-  await requireAdmin();
-  const id = String(formData.get("id") ?? "");
-  if (!id) redirect("/admin?tab=invoices&error=Missing+invoice");
-
+async function generateInvoiceDocuments(id: string) {
   const invoice = await prisma.invoice.findUnique({
     where: { id },
     include: {
       booking: { include: { flight: true, returnFlight: true } },
     },
   });
-  if (!invoice) redirect("/admin?tab=invoices&error=Invoice+not+found");
+  if (!invoice) return { ok: false as const, error: "Invoice not found" };
 
   const identity = defaultInvoiceIdentity();
   const flight = invoice.booking.flight;
@@ -290,6 +299,7 @@ export async function generateInvoiceDocumentsAction(formData: FormData) {
           destination: flight.destination,
           tripType,
         }),
+      seatLabel: invoice.seatLabel || "Auto assigned",
       nameRef: invoice.nameRef || invoice.booking.bookingRef.slice(-7),
       endorsementText: invoice.endorsementText || defaultEndorsementText(),
       fareCalculationLine:
@@ -306,7 +316,56 @@ export async function generateInvoiceDocumentsAction(formData: FormData) {
   });
 
   revalidatePath("/admin");
+  return { ok: true as const };
+}
+
+/** Modal-friendly generate both docs (no redirect). */
+export async function generateInvoiceDocumentsModalAction(invoiceId: string) {
+  await requireAdmin();
+  return generateInvoiceDocuments(invoiceId);
+}
+
+/** Backfill document fields on an existing invoice (generate / refresh). */
+export async function generateInvoiceDocumentsAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) redirect("/admin?tab=invoices&error=Missing+invoice");
+
+  const result = await generateInvoiceDocuments(id);
+  if (!result.ok) {
+    redirect(
+      `/admin?tab=invoices&error=${encodeURIComponent(result.error)}`,
+    );
+  }
   redirect(
     `/admin?tab=invoices&saved=invoice-generated&focus=${encodeURIComponent(id)}`,
   );
+}
+
+/** Modal-friendly send email for both documents. */
+export async function sendInvoiceEmailModalAction(invoiceId: string) {
+  await requireAdmin();
+  const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+  if (!invoice) return { ok: false as const, error: "Invoice not found" };
+
+  const result = await sendInvoiceEmailForBooking(invoice.bookingId);
+  if (!result.ok && !("skipped" in result && result.skipped)) {
+    return { ok: false as const, error: result.error };
+  }
+
+  if (!result.ok && "skipped" in result && result.skipped) {
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: { sentAt: new Date() },
+    });
+    revalidatePath("/admin");
+    return {
+      ok: true as const,
+      warning:
+        "Marked sent locally — configure RESEND_API_KEY or SMTP to actually email customers.",
+    };
+  }
+
+  revalidatePath("/admin");
+  return { ok: true as const };
 }

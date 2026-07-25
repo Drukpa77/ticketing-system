@@ -7,6 +7,7 @@ import {
   QuoteSummaryCard,
 } from "@/components/checkout/CheckoutShell";
 import { getCheckoutQuoteState } from "@/lib/checkout/loadQuote";
+import { passengerDraftFromQuote } from "@/lib/checkout/passengerDraft";
 import {
   getBankTransferDetails,
   isBankTransferConfigured,
@@ -20,6 +21,11 @@ export default async function BankCheckoutPage({
   const { quoteId } = await params;
   const state = await getCheckoutQuoteState(quoteId);
   if (!state) notFound();
+
+  const draft = passengerDraftFromQuote(state.quote);
+  if (state.available && !draft.complete) {
+    redirect(`/checkout/${quoteId}/passengers`);
+  }
 
   if (!isBankTransferConfigured()) {
     redirect(`/checkout/${quoteId}`);
@@ -47,6 +53,7 @@ export default async function BankCheckoutPage({
               quoteId={quoteId}
               maxSeats={state.maxSeats}
               unitPriceCents={state.quote.quotedPriceCents}
+              initialPassenger={draft}
               bankPreview={bank}
             />
           )}

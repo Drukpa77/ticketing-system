@@ -3,12 +3,27 @@
 import { useEffect, useId, useRef, useState } from "react";
 import Script from "next/script";
 
+export type SquareBillingContact = {
+  givenName?: string;
+  familyName?: string;
+  email?: string;
+  phone?: string;
+  addressLines?: string[];
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  countryCode?: string;
+};
+
 type SquareCardFieldsProps = {
   applicationId: string;
   locationId: string;
   environment: "sandbox" | "production";
   disabled?: boolean;
   buttonLabel: string;
+  /** AUD cents — used for SCA / verification during tokenize */
+  amountCents: number;
+  billingContact: SquareBillingContact;
   onToken: (token: string) => void | Promise<void>;
   onError: (message: string) => void;
 };
@@ -16,7 +31,8 @@ type SquareCardFieldsProps = {
 type SquareCardInstance = {
   attach: (selector: string) => Promise<void>;
   destroy: () => Promise<void>;
-  tokenize: () => Promise<{
+  configure?: (options: Record<string, unknown>) => Promise<void>;
+  tokenize: (verificationDetails?: Record<string, unknown>) => Promise<{
     status: string;
     token?: string;
     errors?: { message?: string }[];
@@ -24,6 +40,7 @@ type SquareCardInstance = {
 };
 
 type SquarePayments = {
+  setLocale?: (locale: string) => Promise<void> | void;
   card: (options?: Record<string, unknown>) => Promise<SquareCardInstance>;
 };
 
@@ -59,12 +76,24 @@ const cardStyle = {
   },
 };
 
+function splitName(fullName: string) {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { givenName: "", familyName: "" };
+  if (parts.length === 1) return { givenName: parts[0], familyName: "" };
+  return {
+    givenName: parts[0],
+    familyName: parts.slice(1).join(" "),
+  };
+}
+
 export function SquareCardFields({
   applicationId,
   locationId,
   environment,
   disabled,
   buttonLabel,
+  amountCents,
+  billingContact,
   onToken,
   onError,
 }: SquareCardFieldsProps) {
@@ -73,10 +102,14 @@ export function SquareCardFields({
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const cardRef = useRef<SquareCardInstance | null>(null);
+  const billingRef = useRef(billingContact);
+  const amountRef = useRef(amountCents);
   const reactId = useId().replace(/:/g, "");
   const containerId = `square-card-${reactId}`;
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
+  billingRef.current = billingContact;
+  amountRef.current = amountCents;
 
   const scriptSrc =
     environment === "production"
@@ -97,13 +130,27 @@ export function SquareCardFields({
         }
 
         const payments = window.Square.payments(applicationId, locationId);
+        try {
+          await payments.setLocale?.("en-AU");
+        } catch {
+          /* locale is best-effort */
+        }
+
+        const initialPostal = billingRef.current.postalCode?.trim() || undefined;
+        const cardOptions: Record<string, unknown> = { style: cardStyle };
+        // Prefill from billing address so the buyer isn't asked twice.
+        if (initialPostal) cardOptions.postalCode = initialPostal;
 
         let card: SquareCardInstance;
         try {
-          card = await payments.card({ style: cardStyle });
+          card = await payments.card(cardOptions);
         } catch {
           // Retry without custom styles if Square rejects them
-          card = await payments.card();
+          const fallback: Record<string, unknown> = {};
+          if (initialPostal) fallback.postalCode = initialPostal;
+          card = await payments.card(
+            Object.keys(fallback).length ? fallback : undefined,
+          );
         }
 
         if (cancelled) {
@@ -146,12 +193,44 @@ export function SquareCardFields({
     };
   }, [scriptReady, applicationId, locationId, containerId]);
 
+  // Keep Square's postcode field in sync with the billing address section.
+  useEffect(() => {
+    const card = cardRef.current;
+    const postal = billingContact.postalCode?.trim();
+    if (!card?.configure || !postal || !cardReady) return;
+    void card.configure({ postalCode: postal }).catch(() => undefined);
+  }, [billingContact.postalCode, cardReady]);
+
   async function handlePay() {
     if (!cardRef.current || busy || disabled) return;
     setBusy(true);
     onErrorRef.current("");
     try {
-      const result = await cardRef.current.tokenize();
+      const billing = billingRef.current;
+      const names = splitName(
+        [billing.givenName, billing.familyName].filter(Boolean).join(" "),
+      );
+      const amount = (amountRef.current / 100).toFixed(2);
+      const verificationDetails = {
+        amount,
+        currencyCode: "AUD",
+        intent: "CHARGE",
+        customerInitiated: true,
+        sellerKeyedIn: false,
+        billingContact: {
+          givenName: billing.givenName || names.givenName || undefined,
+          familyName: billing.familyName || names.familyName || undefined,
+          email: billing.email || undefined,
+          phone: billing.phone || undefined,
+          addressLines: billing.addressLines?.filter(Boolean) || undefined,
+          city: billing.city || undefined,
+          state: billing.state || undefined,
+          postalCode: billing.postalCode || undefined,
+          countryCode: billing.countryCode || "AU",
+        },
+      };
+
+      const result = await cardRef.current.tokenize(verificationDetails);
       if (result.status !== "OK" || !result.token) {
         onErrorRef.current(
           result.errors?.[0]?.message ?? "Card details are invalid",
@@ -180,10 +259,19 @@ export function SquareCardFields({
           onErrorRef.current(msg);
         }}
       />
-      <div
-        id={containerId}
-        className="min-h-[96px] border border-line bg-white px-3 py-3"
-      />
+      <div>
+        <p className="mb-2 text-xs font-medium uppercase tracking-[0.14em] text-muted">
+          Card details
+        </p>
+        <div
+          id={containerId}
+          className="min-h-[72px] border border-line bg-white px-3 py-3"
+        />
+        <p className="mt-2 text-xs text-muted">
+          Enter card number, expiry, and CVV. Postcode is taken from your
+          billing address above.
+        </p>
+      </div>
       {!cardReady && !loadError && (
         <p className="text-sm text-muted">Loading secure card fields…</p>
       )}

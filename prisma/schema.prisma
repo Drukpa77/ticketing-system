@@ -140,6 +140,16 @@ model PriceQuote {
   baseMarkup             Float
   expiresAt              DateTime
   status                 QuoteStatus @default(active)
+  /// Passenger draft collected before payment
+  passengerTitle         String      @default("")
+  passengerFirstName     String      @default("")
+  passengerLastName      String      @default("")
+  passengerEmail         String      @default("")
+  passengerPhone         String      @default("")
+  passportNumber         String      @default("")
+  nationality            String      @default("")
+  seatsBooked            Int         @default(1)
+  privacyAccepted        Boolean     @default(false)
   createdAt              DateTime    @default(now())
 
   booking Booking?

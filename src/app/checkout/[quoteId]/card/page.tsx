@@ -7,6 +7,7 @@ import {
   QuoteSummaryCard,
 } from "@/components/checkout/CheckoutShell";
 import { getCheckoutQuoteState } from "@/lib/checkout/loadQuote";
+import { passengerDraftFromQuote } from "@/lib/checkout/passengerDraft";
 import { getSquarePublicConfig } from "@/lib/payments/square";
 
 export default async function CardCheckoutPage({
@@ -17,6 +18,11 @@ export default async function CardCheckoutPage({
   const { quoteId } = await params;
   const state = await getCheckoutQuoteState(quoteId);
   if (!state) notFound();
+
+  const draft = passengerDraftFromQuote(state.quote);
+  if (state.available && !draft.complete) {
+    redirect(`/checkout/${quoteId}/passengers`);
+  }
 
   const square = getSquarePublicConfig();
   if (!square.configured) {
@@ -40,6 +46,7 @@ export default async function CardCheckoutPage({
               quoteId={quoteId}
               maxSeats={state.maxSeats}
               unitPriceCents={state.quote.quotedPriceCents}
+              initialPassenger={draft}
               square={{
                 applicationId: square.applicationId,
                 locationId: square.locationId,

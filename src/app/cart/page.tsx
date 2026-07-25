@@ -117,10 +117,10 @@ export default async function CartPage({
 
                   <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                     <Link
-                      href={`/checkout/${quote.id}`}
+                      href={`/checkout/${quote.id}/passengers`}
                       className="inline-flex min-h-11 items-center justify-center rounded-full bg-accent-deep px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-accent"
                     >
-                      Continue to checkout
+                      Continue to passenger details
                     </Link>
                     <form action={removeCartItemAction} className="sm:inline">
                       <input type="hidden" name="quoteId" value={quote.id} />
@@ -147,10 +147,10 @@ export default async function CartPage({
               </div>
               {items.length === 1 ? (
                 <Link
-                  href={`/checkout/${items[0].id}`}
+                  href={`/checkout/${items[0].id}/passengers`}
                   className="mt-4 flex min-h-11 w-full items-center justify-center rounded-full bg-accent px-5 py-3 text-sm font-semibold text-white transition hover:bg-accent-deep"
                 >
-                  Checkout
+                  Continue to passenger details
                 </Link>
               ) : null}
             </div>

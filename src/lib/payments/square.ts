@@ -37,6 +37,15 @@ export function getSquareClient() {
   });
 }
 
+export type SquareBillingAddress = {
+  addressLine1: string;
+  addressLine2?: string;
+  locality: string;
+  administrativeDistrictLevel1?: string;
+  postalCode: string;
+  country: string;
+};
+
 export async function chargeCardPayment(input: {
   sourceId: string;
   amountCents: number;
@@ -44,6 +53,7 @@ export async function chargeCardPayment(input: {
   referenceId: string;
   note: string;
   buyerEmail?: string;
+  billingAddress?: SquareBillingAddress;
 }) {
   const client = getSquareClient();
   const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID;
@@ -52,6 +62,19 @@ export async function chargeCardPayment(input: {
   }
 
   try {
+    const billingAddress = input.billingAddress
+      ? {
+          addressLine1: input.billingAddress.addressLine1,
+          addressLine2: input.billingAddress.addressLine2 || undefined,
+          locality: input.billingAddress.locality,
+          administrativeDistrictLevel1:
+            input.billingAddress.administrativeDistrictLevel1 || undefined,
+          postalCode: input.billingAddress.postalCode,
+          // Square's Country union is ISO-3166 codes; runtime validates.
+          country: input.billingAddress.country as "AU",
+        }
+      : undefined;
+
     const response = await client.payments.create({
       sourceId: input.sourceId,
       idempotencyKey: input.idempotencyKey,
@@ -64,6 +87,7 @@ export async function chargeCardPayment(input: {
       note: input.note.slice(0, 500),
       autocomplete: true,
       buyerEmailAddress: input.buyerEmail,
+      billingAddress,
     });
 
     const payment = response.payment;

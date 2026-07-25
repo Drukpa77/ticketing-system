@@ -68,6 +68,17 @@ export function formatShortDate(date: Date | string) {
   }).format(d);
 }
 
+/** Card schedule line — e.g. "Mon, 17 Aug". */
+export function formatCardDate(date: Date | string) {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return new Intl.DateTimeFormat("en-AU", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: "Australia/Sydney",
+  }).format(d);
+}
+
 export function formatStripDay(date: string) {
   const d = new Date(`${date}T12:00:00.000Z`);
   return {

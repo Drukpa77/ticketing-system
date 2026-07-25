@@ -1,0 +1,10 @@
+-- AlterTable
+ALTER TABLE "PriceQuote" ADD COLUMN "passengerTitle" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "PriceQuote" ADD COLUMN "passengerFirstName" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "PriceQuote" ADD COLUMN "passengerLastName" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "PriceQuote" ADD COLUMN "passengerEmail" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "PriceQuote" ADD COLUMN "passengerPhone" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "PriceQuote" ADD COLUMN "passportNumber" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "PriceQuote" ADD COLUMN "nationality" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "PriceQuote" ADD COLUMN "seatsBooked" INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE "PriceQuote" ADD COLUMN "privacyAccepted" BOOLEAN NOT NULL DEFAULT false;

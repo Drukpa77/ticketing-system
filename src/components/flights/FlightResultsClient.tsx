@@ -17,6 +17,8 @@ type FlightResultsClientProps = {
   date: string;
   returnDate?: string;
   tripType: "one_way" | "round_trip";
+  passengers?: number;
+  cabinClass?: "economy" | "business";
   title?: string;
   summaryTitle?: string;
   dayFares: DateStripDay[];
@@ -35,6 +37,8 @@ export function FlightResultsClient({
   date,
   returnDate,
   tripType,
+  passengers = 1,
+  cabinClass = "economy",
   summaryTitle,
   dayFares,
   baseParams,
@@ -89,6 +93,8 @@ export function FlightResultsClient({
         date={date}
         returnDate={returnDate}
         tripType={tripType}
+        passengers={passengers}
+        cabinClass={cabinClass}
         title={summaryTitle}
         airports={airports}
       />
@@ -120,9 +126,9 @@ export function FlightResultsClient({
         lowestFareCents={globalLowestFareCents}
       />
 
-      <div className="mx-auto w-full max-w-6xl px-0 md:px-6 md:py-5">
+      <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-5">
         {visible.length === 0 ? (
-          <div className="m-4 rounded-2xl border border-dashed border-line bg-white px-6 py-14 text-center sm:m-0">
+          <div className="rounded-2xl border border-dashed border-line bg-white px-6 py-14 text-center shadow-[0_8px_28px_rgba(16,35,28,0.05)]">
             <p className="font-[family-name:var(--font-syne)] text-xl font-semibold">
               No flights found
             </p>
@@ -131,7 +137,7 @@ export function FlightResultsClient({
             </p>
           </div>
         ) : (
-          <div className="overflow-x-clip border-y border-line bg-white md:rounded-2xl md:border md:shadow-[0_12px_40px_rgba(16,35,28,0.06)]">
+          <div className="flex flex-col gap-4">
             {visible.map((flight) => (
               <FlightResultCard
                 key={flight.key}

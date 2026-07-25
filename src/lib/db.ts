@@ -7,7 +7,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 /** Bump when Prisma models change so hot-reload drops a stale client. */
-const PRISMA_SCHEMA_VERSION = "invoice-docs-v1";
+const PRISMA_SCHEMA_VERSION = "passenger-draft-v2";
 
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL;

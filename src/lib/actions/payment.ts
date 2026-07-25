@@ -21,8 +21,18 @@ import { getSessionId } from "@/lib/session";
 import { bookingSchema } from "@/lib/validation";
 import { z } from "zod";
 
+const billingAddressSchema = z.object({
+  addressLine1: z.string().trim().min(3, "Billing street address is required"),
+  addressLine2: z.string().trim().optional(),
+  locality: z.string().trim().min(2, "Billing suburb / city is required"),
+  administrativeDistrictLevel1: z.string().trim().optional(),
+  postalCode: z.string().trim().min(3, "Billing postcode is required"),
+  country: z.string().trim().length(2, "Billing country is required"),
+});
+
 const cardPaymentSchema = bookingSchema.extend({
   sourceId: z.string().min(1, "Card token missing"),
+  billingAddress: billingAddressSchema,
 });
 
 function toErrorMessage(error: unknown, fallback: string) {
@@ -39,6 +49,14 @@ export async function payWithCardAction(input: {
   nationality?: string;
   seatsBooked: number;
   sourceId: string;
+  billingAddress: {
+    addressLine1: string;
+    addressLine2?: string;
+    locality: string;
+    administrativeDistrictLevel1?: string;
+    postalCode: string;
+    country: string;
+  };
 }): Promise<{ error?: string }> {
   try {
     if (!isSquareConfigured()) {
@@ -82,6 +100,7 @@ export async function payWithCardAction(input: {
         referenceId: parsed.data.quoteId,
         note: `Flight booking ${parsed.data.passengerName} (incl. 2.2% credit card fee)`,
         buyerEmail: parsed.data.email,
+        billingAddress: parsed.data.billingAddress,
       });
       squarePaymentId = payment.paymentId;
     } catch (error) {

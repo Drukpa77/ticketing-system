@@ -1,0 +1,475 @@
+import { readFileSync } from "fs";
+import path from "path";
+import { getBrand } from "@/lib/branding";
+import {
+  cityName,
+  computeInvoiceTotals,
+} from "@/lib/documents/invoiceFields";
+import type { BookingDocumentData } from "@/lib/documents/templates";
+
+function esc(value: string | number | null | undefined) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function assetDataUri(filename: string) {
+  const candidates = [
+    path.join(process.cwd(), "public", "documents", "invoice-assets", filename),
+    path.join(process.cwd(), "public", "documents", "eticket-assets", filename),
+  ];
+  for (const filePath of candidates) {
+    try {
+      const buf = readFileSync(filePath);
+      return `data:image/png;base64,${buf.toString("base64")}`;
+    } catch {
+      /* try next */
+    }
+  }
+  return "";
+}
+
+/** PDF-style money: $1,234 */
+function money(cents: number) {
+  const n = (Math.max(0, cents) / 100).toLocaleString("en-AU", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+  return `$${n}`;
+}
+
+function longDate(date: Date | null | undefined) {
+  if (!date) return "—";
+  return new Intl.DateTimeFormat("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Australia/Sydney",
+  }).format(date);
+}
+
+function travelDateLabel(date: Date) {
+  return new Intl.DateTimeFormat("en-AU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Australia/Sydney",
+  }).format(date);
+}
+
+function normalizeRoute(label: string) {
+  return label.replaceAll(" ", "").toLowerCase();
+}
+
+export function renderAirfareInvoiceHtml(data: BookingDocumentData) {
+  const brand = getBrand();
+  const invoice = data.invoice;
+  if (!invoice) {
+    throw new Error("Invoice missing for airfare invoice document");
+  }
+
+  const lines = {
+    airfareCents: invoice.airfareCents || invoice.fareCents || 0,
+    airportTaxesCents: invoice.airportTaxesCents || 0,
+    extraBaggageCents: invoice.extraBaggageCents || 0,
+    travelInsuranceCents: invoice.travelInsuranceCents || 0,
+    otherChargesCents: invoice.otherChargesCents || 0,
+  };
+  const totals = computeInvoiceTotals({
+    ...lines,
+    serviceFeeCents: invoice.serviceFeeCents || 0,
+    gstRateBps: invoice.gstRateBps,
+    gstIncluded: invoice.gstIncluded,
+  });
+  const unpaid = invoice.status === "unpaid";
+  const bankName = process.env.BANK_NAME?.trim() || "Brule Bank";
+  const routeLabel =
+    invoice.routeLabel ||
+    `${cityName(data.flight.origin)}-${cityName(data.flight.destination)}`;
+  const routeOptions = [
+    "Paro-Perth",
+    "Perth-Paro",
+    "Perth-Paro-Perth",
+    "Paro-Perth-Paro",
+  ];
+  const activeRoute = normalizeRoute(routeLabel);
+
+  const lineRows: Array<[string, number]> = [
+    ["Airfare", lines.airfareCents],
+    ["Airport Taxes", lines.airportTaxesCents],
+    ["Extra Baggage", lines.extraBaggageCents],
+    ["Travel Insurance", lines.travelInsuranceCents],
+    ["Other Charges", lines.otherChargesCents + (invoice.serviceFeeCents || 0)],
+  ];
+
+  const headerUri =
+    assetDataUri("header.png") || assetDataUri("header-page1.png");
+  const taxPct = ((invoice.gstRateBps || 1000) / 100).toFixed(0);
+
+  const styles = `
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #d7dde5;
+      color: #111;
+      font-family: Arial, Helvetica, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      background: #fff;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,.12);
+      padding-bottom: 88px;
+    }
+    .topbar { height: 12px; background: #0b2c5a; }
+    .header-img { display: block; width: 100%; height: auto; }
+    .body { padding: 18px 36px 10px; }
+    .meta-row {
+      display: grid;
+      grid-template-columns: 1.15fr 0.95fr;
+      gap: 18px;
+      align-items: start;
+      margin-bottom: 8px;
+    }
+    .invoice-title {
+      margin: 8px 0 18px;
+      font-size: 42px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      line-height: 1;
+    }
+    .meta {
+      text-align: right;
+      font-size: 12.5px;
+      line-height: 1.7;
+      padding-top: 4px;
+    }
+    .meta b { font-weight: 700; }
+    .due {
+      margin-top: 10px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .section-label {
+      margin: 0 0 8px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .invoice-to {
+      font-size: 13px;
+      line-height: 1.75;
+      margin-bottom: 18px;
+    }
+    .invoice-to .row {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 8px;
+    }
+    .invoice-to .row span:first-child { font-weight: 700; }
+    .flight {
+      margin: 6px 0 20px;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .flight .row {
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 8px;
+      margin: 4px 0;
+      align-items: start;
+    }
+    .flight .row > span:first-child {
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+    .routes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+    }
+    .route {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12.5px;
+    }
+    .box {
+      width: 13px;
+      height: 13px;
+      border: 1.5px solid #222;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .box.on { background: #0b2c5a; border-color: #0b2c5a; color: #fff; }
+    table.items {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+    table.items th {
+      text-align: left;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 8px 6px;
+      border-bottom: 1.5px solid #c5ced8;
+    }
+    table.items th.num, table.items td.num { text-align: right; }
+    table.items td {
+      padding: 10px 6px;
+      border-bottom: 1px solid #d7dde5;
+      vertical-align: middle;
+    }
+    table.items td:first-child { font-weight: 600; }
+    .totals {
+      width: 280px;
+      margin-left: auto;
+      margin-top: 14px;
+      font-size: 13px;
+    }
+    .totals .line {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 5px 0;
+    }
+    .totals .line.tax span:last-child { color: #333; }
+    .totals .rule {
+      border-top: 2px solid #111;
+      margin: 6px 0 4px;
+    }
+    .totals .grand {
+      display: flex;
+      justify-content: space-between;
+      font-size: 16px;
+      font-weight: 800;
+      padding-top: 4px;
+    }
+    .pay {
+      margin-top: 28px;
+      font-size: 13px;
+      line-height: 1.7;
+      max-width: 420px;
+    }
+    .pay h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .pay .row {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 6px;
+    }
+    .ref {
+      margin-top: 14px;
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .status {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: ${unpaid ? "#8a3b12" : "#0f3d2e"};
+    }
+    .footer {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      border-top: 3px solid #f5c518;
+      padding: 12px 28px 0;
+    }
+    .footer-row {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1.1fr;
+      gap: 10px;
+      font-size: 12px;
+      color: #0b2c5a;
+      font-weight: 700;
+      padding-bottom: 12px;
+    }
+    .footer .item { display: flex; align-items: center; gap: 8px; }
+    .footer .dot {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #f5c518; color: #0b2c5a;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 11px; flex-shrink: 0;
+    }
+    .footer-bar { height: 14px; background: #f5c518; }
+    @media print {
+      body { background: #fff; }
+      .page { box-shadow: none; margin: 0; }
+    }
+  `;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Invoice ${esc(invoice.invoiceNumber)}</title>
+  <style>${styles}</style>
+</head>
+<body>
+  <section class="page">
+    <div class="topbar"></div>
+    ${
+      headerUri
+        ? `<img class="header-img" src="${headerUri}" alt="L&B Global · Drukair" />`
+        : ""
+    }
+    <div class="body">
+      <div class="meta-row">
+        <div>
+          <div class="invoice-title">INVOICE</div>
+          <div class="section-label">Invoice To:</div>
+          <div class="invoice-to">
+            <div class="row"><span>Name:</span><span>${esc(data.passengerName)}</span></div>
+            <div class="row"><span>Passport No:</span><span>${esc(data.passportNumber || "—")}</span></div>
+            <div class="row"><span>Email:</span><span>${esc(data.email)}</span></div>
+            <div class="row"><span>Phone:</span><span>${esc(data.passengerPhone || invoice.customerPhone || "—")}</span></div>
+          </div>
+        </div>
+        <div class="meta">
+          <div><b>Invoice Date:</b> ${esc(longDate(invoice.createdAt))}</div>
+          <div><b>Invoice Number:</b> ${esc(invoice.invoiceNumber)}</div>
+          <div><b>Account Number:</b> ${esc(invoice.accountNumber || brand.invoiceAccountNumber)}</div>
+          <div><b>Business TPN Number:</b> ${esc(invoice.businessTpn || brand.invoiceBusinessTpn)}</div>
+          ${
+            invoice.dueAt
+              ? `<div class="due">INVOICE DUE DATE:<br />${esc(longDate(invoice.dueAt))}</div>`
+              : unpaid
+                ? `<div class="due">INVOICE DUE DATE:<br />On receipt</div>`
+                : `<div class="due">STATUS:<br />Paid</div>`
+          }
+          <div class="status">${unpaid ? "Unpaid" : "Paid"}</div>
+        </div>
+      </div>
+
+      <div class="section-label">Flight Details:</div>
+      <div class="flight">
+        <div class="row">
+          <span>Route:</span>
+          <div class="routes">
+            ${routeOptions
+              .map((r) => {
+                const on = normalizeRoute(r) === activeRoute;
+                return `<span class="route"><span class="box${on ? " on" : ""}">${on ? "✓" : ""}</span>${esc(r)}</span>`;
+              })
+              .join("")}
+            ${
+              !routeOptions.some((r) => normalizeRoute(r) === activeRoute)
+                ? `<span class="route"><span class="box on">✓</span>${esc(routeLabel)}</span>`
+                : ""
+            }
+          </div>
+        </div>
+        <div class="row"><span>Travel Date:</span><span>${esc(travelDateLabel(data.flight.departureAt))}${
+          data.returnFlight
+            ? ` · Return ${esc(travelDateLabel(data.returnFlight.departureAt))}`
+            : ""
+        }</span></div>
+        <div class="row"><span>Booking Reference:</span><span><strong>${esc(data.bookingRef)}</strong></span></div>
+      </div>
+
+      <table class="items">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th class="num">Qty</th>
+            <th class="num">Unit Price</th>
+            <th class="num">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${lineRows
+            .map(([name, cents]) => {
+              const qty = cents > 0 ? data.seatsBooked : 0;
+              const unit =
+                cents > 0 && data.seatsBooked > 0
+                  ? Math.round(cents / data.seatsBooked)
+                  : 0;
+              return `<tr>
+                <td>${esc(name)}</td>
+                <td class="num">${qty}</td>
+                <td class="num">${esc(money(unit).replace("$", ""))}</td>
+                <td class="num">${esc(money(cents))}</td>
+              </tr>`;
+            })
+            .join("")}
+        </tbody>
+      </table>
+
+      <div class="totals">
+        <div class="line"><span>SUBTOTAL</span><span>${esc(money(totals.linesCents))}</span></div>
+        <div class="line tax"><span>Tax</span><span>${esc(taxPct)}%</span></div>
+        <div class="line"><span></span><span>${esc(money(totals.gstCents))}</span></div>
+        <div class="rule"></div>
+        <div class="grand"><span>Total</span><span>${esc(money(invoice.amountCents))}</span></div>
+      </div>
+
+      <div class="pay">
+        <h3>Payment Information</h3>
+        ${
+          unpaid
+            ? `
+        <div class="row"><span>Account Name :</span><span>${esc(invoice.bankAccountName || "—")}</span></div>
+        <div class="row"><span>Bank:</span><span>${esc(bankName)}</span></div>
+        <div class="row"><span>BSB:</span><span>${esc(invoice.bankBsb || "—")}</span></div>
+        <div class="row"><span>Account no. :</span><span>${esc(invoice.bankAccountNumber || "—")}</span></div>
+        <div class="ref">Reference: Invoice Number / Passenger Name</div>
+        <p style="margin:8px 0 0;font-size:12px;color:#444">Please use <strong>${esc(invoice.bankReference || invoice.invoiceNumber)} / ${esc(data.passengerName)}</strong> as the payment reference.</p>`
+            : `
+        <div class="row"><span>Status:</span><span>Paid</span></div>
+        <div class="row"><span>Form of Payment:</span><span>${
+          data.paymentMethod === "card"
+            ? "Credit Card"
+            : data.paymentMethod === "bank_transfer"
+              ? "Bank Transfer"
+              : data.paymentMethod === "cash"
+                ? "Cash"
+                : "—"
+        }</span></div>
+        <div class="row"><span>Transaction ID:</span><span>${esc(invoice.squarePaymentId || data.bookingRef)}</span></div>
+        <div class="ref">Reference: Invoice Number / Passenger Name</div>`
+        }
+        ${
+          invoice.notes
+            ? `<p style="margin-top:12px;font-size:12px;color:#444">${esc(invoice.notes)}</p>`
+            : ""
+        }
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="footer-row">
+        <div class="item"><span class="dot">☎</span>${esc(brand.agentPhonePrimary)} | ${esc(brand.agentPhoneSecondary)}</div>
+        <div class="item"><span class="dot">🌐</span>${esc(brand.agentWebsite)}</div>
+        <div class="item"><span class="dot">✉</span>${esc(brand.agentEmail)}</div>
+      </div>
+      <div class="footer-bar"></div>
+    </div>
+  </section>
+</body>
+</html>`;
+}

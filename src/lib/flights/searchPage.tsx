@@ -21,7 +21,19 @@ export type FlightSearchParams = {
   tripType?: string;
   returnDate?: string;
   outboundId?: string;
+  passengers?: string;
+  cabinClass?: string;
 };
+
+function parsePassengers(raw?: string) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 1;
+  return Math.min(9, Math.max(1, Math.round(n)));
+}
+
+function parseCabinClass(raw?: string): "economy" | "business" {
+  return raw === "business" ? "business" : "economy";
+}
 
 function defaultSearchDate(offsetDays: number): string {
   const d = new Date();
@@ -121,6 +133,8 @@ export async function renderFlightSearch(raw: FlightSearchParams) {
 
   const { origin, destination, date, tripType, returnDate } = parsed.data;
   const isRoundTrip = tripType === "round_trip";
+  const passengers = parsePassengers(raw.passengers);
+  const cabinClass = parseCabinClass(raw.cabinClass);
   const { economy: economyFromCents, business: businessFromCents } =
     await getCharterCabinFromPrices();
 
@@ -206,6 +220,8 @@ export async function renderFlightSearch(raw: FlightSearchParams) {
         const params = new URLSearchParams({
           outboundId: outbound.id,
           returnId: flight.id,
+          passengers: String(passengers),
+          cabinClass,
         });
         return {
           flight,
@@ -262,6 +278,8 @@ export async function renderFlightSearch(raw: FlightSearchParams) {
       date,
       tripType: "round_trip",
       outboundId: outbound.id,
+      passengers: String(passengers),
+      cabinClass,
     };
     if (returnDate) baseParams.returnDate = returnDate;
 
@@ -272,6 +290,8 @@ export async function renderFlightSearch(raw: FlightSearchParams) {
         date={date}
         returnDate={activeReturnDate}
         tripType="round_trip"
+        passengers={passengers}
+        cabinClass={cabinClass}
         summaryTitle="Choose your return"
         stripDate={activeReturnDate}
         dateParam="returnDate"
@@ -323,6 +343,8 @@ export async function renderFlightSearch(raw: FlightSearchParams) {
             tripType: "round_trip",
             ...(returnDate ? { returnDate } : {}),
             outboundId: flight.id,
+            passengers: String(passengers),
+            cabinClass,
           }).toString()}`
         : `/flights/${flight.id}`;
       return {
@@ -339,6 +361,8 @@ export async function renderFlightSearch(raw: FlightSearchParams) {
     destination,
     date,
     tripType,
+    passengers: String(passengers),
+    cabinClass,
   };
   if (returnDate) baseParams.returnDate = returnDate;
 
@@ -349,6 +373,8 @@ export async function renderFlightSearch(raw: FlightSearchParams) {
       date={date}
       returnDate={returnDate}
       tripType={tripType}
+      passengers={passengers}
+      cabinClass={cabinClass}
       summaryTitle={isRoundTrip ? "Choose outbound" : undefined}
       stripDate={date}
       dateParam="date"

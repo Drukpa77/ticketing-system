@@ -164,7 +164,15 @@ export default async function AdminPage({
       prisma.invoice.findMany({
         orderBy: { createdAt: "desc" },
         take: 50,
-        include: { booking: { select: { bookingRef: true } } },
+        include: {
+          booking: {
+            select: {
+              bookingRef: true,
+              passportNumber: true,
+              nationality: true,
+            },
+          },
+        },
       }),
       getFlightPriceAnalytics(),
       listAllCharterFareProductsAdmin(),
@@ -381,6 +389,8 @@ export default async function AdminPage({
               customerName: invoice.customerName,
               customerEmail: invoice.customerEmail,
               customerPhone: invoice.customerPhone,
+              passportNumber: invoice.booking.passportNumber || "",
+              nationality: invoice.booking.nationality || "",
               notes: invoice.notes,
               bankReference: invoice.bankReference,
               squarePaymentId: invoice.squarePaymentId,

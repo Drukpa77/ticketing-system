@@ -12,6 +12,14 @@ type BankCheckoutFormProps = {
   quoteId: string;
   maxSeats: number;
   unitPriceCents: number;
+  initialPassenger?: {
+    passengerName?: string;
+    email?: string;
+    passengerPhone?: string;
+    passportNumber?: string;
+    nationality?: string;
+    seatsBooked?: number;
+  };
   bankPreview: {
     bankName: string;
     accountName: string;
@@ -24,14 +32,25 @@ export function BankCheckoutForm({
   quoteId,
   maxSeats,
   unitPriceCents,
+  initialPassenger,
   bankPreview,
 }: BankCheckoutFormProps) {
-  const [passengerName, setPassengerName] = useState("");
-  const [email, setEmail] = useState("");
-  const [passengerPhone, setPassengerPhone] = useState("");
-  const [passportNumber, setPassportNumber] = useState("");
-  const [nationality, setNationality] = useState("");
-  const [seatsBooked, setSeatsBooked] = useState(1);
+  const [passengerName, setPassengerName] = useState(
+    initialPassenger?.passengerName ?? "",
+  );
+  const [email, setEmail] = useState(initialPassenger?.email ?? "");
+  const [passengerPhone, setPassengerPhone] = useState(
+    initialPassenger?.passengerPhone ?? "",
+  );
+  const [passportNumber, setPassportNumber] = useState(
+    initialPassenger?.passportNumber ?? "",
+  );
+  const [nationality, setNationality] = useState(
+    initialPassenger?.nationality ?? "",
+  );
+  const [seatsBooked, setSeatsBooked] = useState(
+    initialPassenger?.seatsBooked ?? 1,
+  );
   const [state, action, pending] = useActionState(
     payWithBankTransferAction,
     null,
