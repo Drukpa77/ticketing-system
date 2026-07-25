@@ -19,7 +19,7 @@ export default async function CartPage({
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
           Your cart
         </p>
-        <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
+        <h1 className="heading-gradient mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
           Cart
         </h1>
         <p className="mt-2 text-sm text-muted">
@@ -47,7 +47,7 @@ export default async function CartPage({
             </p>
             <Link
               href="/"
-              className="mt-6 inline-flex min-h-11 items-center rounded-full bg-accent-deep px-5 py-3 text-sm font-semibold text-white transition hover:bg-accent"
+              className="btn-cta mt-6 min-h-11 px-5 py-3 text-sm"
             >
               Search flights
             </Link>
@@ -67,7 +67,7 @@ export default async function CartPage({
               return (
                 <article
                   key={quote.id}
-                  className="min-w-0 rounded-2xl border border-line bg-white p-4 shadow-[0_10px_28px_rgba(16,35,28,0.05)] sm:p-6"
+                  className="min-w-0 rounded-2xl border border-line bg-white p-4 shadow-[0_10px_28px_rgba(15, 23, 42,0.05)] sm:p-6"
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
@@ -118,7 +118,7 @@ export default async function CartPage({
                   <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                     <Link
                       href={`/checkout/${quote.id}/passengers`}
-                      className="inline-flex min-h-11 items-center justify-center rounded-full bg-accent-deep px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-accent"
+                      className="btn-cta min-h-11 px-5 py-2.5 text-sm"
                     >
                       Continue to passenger details
                     </Link>
@@ -148,7 +148,7 @@ export default async function CartPage({
               {items.length === 1 ? (
                 <Link
                   href={`/checkout/${items[0].id}/passengers`}
-                  className="mt-4 flex min-h-11 w-full items-center justify-center rounded-full bg-accent px-5 py-3 text-sm font-semibold text-white transition hover:bg-accent-deep"
+                  className="btn-cta mt-4 min-h-11 w-full px-5 py-3 text-sm"
                 >
                   Continue to passenger details
                 </Link>

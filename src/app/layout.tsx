@@ -28,6 +28,10 @@ export const metadata: Metadata = {
   title: "Drukair – Royal Bhutan Airlines | Flight bookings",
   description:
     "Book Drukair flights with live fares, e-tickets, and tax invoices in AUD",
+  icons: {
+    icon: "/drukair_logo.png",
+    apple: "/drukair_logo.png",
+  },
 };
 
 export default function RootLayout({

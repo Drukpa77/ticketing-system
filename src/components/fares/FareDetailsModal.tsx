@@ -53,10 +53,10 @@ export function FareDetailsModal({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[min(92svh,920px)] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-[0_24px_80px_rgba(16,35,28,0.28)] sm:rounded-2xl"
+        className="flex max-h-[min(92svh,920px)] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-[0_24px_80px_rgba(15, 23, 42,0.28)] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="relative shrink-0 bg-gradient-to-br from-accent-deep via-accent to-[#248f63] px-4 py-5 text-white sm:px-7 sm:py-6">
+        <header className="theme-banner relative shrink-0 px-4 py-5 text-white sm:px-7 sm:py-6">
           <button
             type="button"
             onClick={onClose}

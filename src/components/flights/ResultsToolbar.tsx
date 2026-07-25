@@ -79,7 +79,7 @@ export function ResultsToolbar({
               <FilterIcon />
               Filters
               {nonstopOnly ? (
-                <span className="rounded-full bg-accent px-1.5 text-[10px] font-bold text-white">
+                <span className="badge-info px-1.5 text-[10px] font-bold">
                   1
                 </span>
               ) : null}
@@ -92,7 +92,7 @@ export function ResultsToolbar({
                   className="fixed inset-0 z-10 cursor-default bg-transparent"
                   onClick={onToggleFilters}
                 />
-                <div className="absolute right-0 z-20 mt-2 w-[min(100vw-2rem,14rem)] rounded-xl border border-line bg-white p-3 shadow-[0_12px_32px_rgba(16,35,28,0.12)]">
+                <div className="absolute right-0 z-20 mt-2 w-[min(100vw-2rem,14rem)] rounded-xl border border-line bg-white p-3 shadow-[0_12px_32px_rgba(15, 23, 42,0.12)]">
                   <label className="flex min-h-10 cursor-pointer items-center gap-2 text-sm text-foreground">
                     <input
                       type="checkbox"

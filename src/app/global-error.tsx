@@ -12,8 +12,8 @@ export default function GlobalError({
       <body
         style={{
           fontFamily: "system-ui, sans-serif",
-          background: "#e9f0ec",
-          color: "#10231c",
+          background: "#F8FAFC",
+          color: "#0F172A",
           margin: 0,
           minHeight: "100svh",
           display: "grid",
@@ -22,11 +22,11 @@ export default function GlobalError({
         }}
       >
         <div style={{ maxWidth: 420 }}>
-          <p style={{ fontSize: 12, letterSpacing: "0.14em", color: "#1a6b4a" }}>
+          <p style={{ fontSize: 12, letterSpacing: "0.14em", color: "#2563EB" }}>
             SYSTEM ERROR
           </p>
           <h1 style={{ fontSize: 28, marginTop: 8 }}>Something broke</h1>
-          <p style={{ color: "#4d6359", fontSize: 14 }}>
+          <p style={{ color: "#64748B", fontSize: 14 }}>
             {error.message || "Please reload the page."}
           </p>
           <button
@@ -34,7 +34,7 @@ export default function GlobalError({
             onClick={reset}
             style={{
               marginTop: 24,
-              background: "#0f3d2e",
+              background: "#1E3A8A",
               color: "white",
               border: 0,
               padding: "12px 20px",

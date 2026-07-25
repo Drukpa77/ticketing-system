@@ -147,12 +147,16 @@ export async function payWithBankTransferAction(
   _prev: { error?: string } | null,
   formData: FormData,
 ): Promise<{ error?: string }> {
+  const fail = (error: string) => {
+    console.error("payWithBankTransferAction:", error);
+    return { error };
+  };
+
   try {
     if (!isBankTransferConfigured()) {
-      return {
-        error:
-          "Bank transfer is not configured. Ask admin to set bank account details.",
-      };
+      return fail(
+        "Bank transfer is not configured. Ask admin to set bank account details.",
+      );
     }
 
     const parsed = bookingSchema.safeParse({
@@ -166,12 +170,14 @@ export async function payWithBankTransferAction(
     });
 
     if (!parsed.success) {
-      return { error: parsed.error.issues[0]?.message ?? "Invalid form" };
+      return fail(parsed.error.issues[0]?.message ?? "Invalid form");
     }
 
     const sessionId = await getSessionId();
     const bank = getBankTransferDetails();
 
+    // Creates an unpaid invoice + pending booking (no charge). Admin confirms
+    // after the customer emails a payment screenshot.
     const result = await confirmBooking({
       ...parsed.data,
       passengerPhone: parsed.data.passengerPhone || "",
@@ -184,21 +190,26 @@ export async function payWithBankTransferAction(
     });
 
     if (!result.ok) {
-      return { error: result.error };
+      return fail(result.error);
     }
 
+    let emailed = "0";
     try {
-      await sendBankTransferBundle(result.booking.id);
+      const mail = await sendBankTransferBundle(result.booking.id);
+      emailed = mail.ok ? "1" : "0";
+      if (!mail.ok) {
+        console.error("bank transfer email failed", mail.error);
+      }
     } catch (err) {
       console.error("bank transfer email failed", err);
     }
 
-    redirect(`/confirmation/${result.booking.id}`);
+    redirect(
+      `/confirmation/${result.booking.id}?invoice=1&emailed=${emailed}`,
+    );
   } catch (error) {
     if (isRedirectError(error)) throw error;
     console.error("payWithBankTransferAction", error);
-    return {
-      error: toErrorMessage(error, "Could not create bank transfer invoice"),
-    };
+    return fail(toErrorMessage(error, "Could not create bank transfer invoice"));
   }
 }

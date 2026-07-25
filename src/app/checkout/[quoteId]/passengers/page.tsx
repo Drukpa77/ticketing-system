@@ -33,7 +33,7 @@ export default async function PassengerDetailsPage({
           >
             ←
           </Link>
-          <h1 className="font-[family-name:var(--font-syne)] text-xl font-bold tracking-[0.04em] text-accent-deep sm:text-2xl">
+          <h1 className="heading-gradient font-[family-name:var(--font-syne)] text-xl font-bold tracking-[0.04em] sm:text-2xl">
             PASSENGER DETAILS
           </h1>
         </div>

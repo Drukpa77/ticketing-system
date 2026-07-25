@@ -55,24 +55,24 @@ declare global {
 /** Square rejects multi-font stacks and custom web fonts — keep styles minimal. */
 const cardStyle = {
   ".input-container": {
-    borderColor: "#c5d5cc",
+    borderColor: "#E2E8F0",
     borderRadius: "0px",
   },
   ".input-container.is-focus": {
-    borderColor: "#1a6b4a",
+    borderColor: "#2563EB",
   },
   ".input-container.is-error": {
     borderColor: "#b91c1c",
   },
   input: {
     fontSize: "16px",
-    color: "#10231c",
+    color: "#0F172A",
   },
   "input::placeholder": {
-    color: "#4d6359",
+    color: "#64748B",
   },
   ".message-text": {
-    color: "#4d6359",
+    color: "#64748B",
   },
 };
 
@@ -284,7 +284,7 @@ export function SquareCardFields({
         type="button"
         onClick={() => void handlePay()}
         disabled={!cardReady || busy || disabled || Boolean(loadError)}
-        className="w-full bg-accent-deep py-3.5 text-sm font-semibold tracking-wide text-white transition hover:bg-accent disabled:bg-muted"
+        className="btn-cta w-full rounded-xl py-3.5 text-sm tracking-wide"
       >
         {busy ? "Processing…" : buttonLabel}
       </button>

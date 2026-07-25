@@ -1,37 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { DatePicker } from "@/components/DatePicker";
 import type { AirportOption } from "@/lib/format";
 
 function defaultDate(offsetDays: number): string {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
   return d.toISOString().slice(0, 10);
-}
-
-function formatShortDate(iso: string) {
-  if (!iso) return "Select date";
-  const d = new Date(`${iso}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return new Intl.DateTimeFormat("en-AU", {
-    day: "numeric",
-    month: "short",
-    year: "2-digit",
-  }).format(d);
-}
-
-function openDatePicker(input: HTMLInputElement | null) {
-  if (!input) return;
-  try {
-    if (typeof input.showPicker === "function") {
-      input.showPicker();
-      return;
-    }
-  } catch {
-    // Some browsers throw if showPicker is called without a user gesture chain.
-  }
-  input.focus();
-  input.click();
 }
 
 const fieldClass =
@@ -88,8 +64,12 @@ export function SearchForm({
   );
   const [paxOpen, setPaxOpen] = useState(false);
   const paxRef = useRef<HTMLDivElement>(null);
-  const departInputRef = useRef<HTMLInputElement>(null);
-  const returnInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (tripType === "round_trip" && returnDate < departDate) {
+      setReturnDate(departDate);
+    }
+  }, [tripType, departDate, returnDate]);
 
   const isHero = variant === "hero";
   const isPanel = variant === "panel";
@@ -129,7 +109,7 @@ export function SearchForm({
 
   if (isPanel) {
     return (
-      <form id="search" action="/" method="get" className="space-y-4">
+      <form id="search" action="/" method="get" className="relative z-40 space-y-4 overflow-visible">
         <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line">
           <div className="flex gap-5" role="tablist" aria-label="Trip type">
             {(
@@ -244,52 +224,32 @@ export function SearchForm({
             </label>
           </div>
 
-          {/* Dates — whole card is the hit target */}
+          {/* Dates — custom themed calendar */}
           <div
-            className={`grid rounded-2xl border border-line bg-white ${
+            className={`grid overflow-visible rounded-2xl border border-line bg-white ${
               tripType === "round_trip"
                 ? "grid-cols-1 sm:grid-cols-2"
                 : "grid-cols-1"
             }`}
           >
-            <div className="relative flex min-h-[5.5rem] min-w-0 flex-col items-center justify-center px-4 py-3 text-center">
-              <span className="pointer-events-none text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
-                Depart
-              </span>
-              <span className="pointer-events-none mt-1 text-sm font-semibold text-foreground">
-                {formatShortDate(departDate)}
-              </span>
-              <input
-                ref={departInputRef}
-                name="date"
-                type="date"
-                required
-                value={departDate}
-                aria-label="Depart date"
-                onChange={(e) => setDepartDate(e.target.value)}
-                onClick={() => openDatePicker(departInputRef.current)}
-                className="absolute inset-0 z-[1] cursor-pointer opacity-0"
-              />
-            </div>
+            <DatePicker
+              name="date"
+              label="Depart"
+              required
+              value={departDate}
+              onChange={setDepartDate}
+              variant="card"
+            />
             {tripType === "round_trip" ? (
-              <div className="relative flex min-h-[5.5rem] min-w-0 flex-col items-center justify-center border-t border-line px-4 py-3 text-center sm:border-l sm:border-t-0">
-                <span className="pointer-events-none text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
-                  Return
-                </span>
-                <span className="pointer-events-none mt-1 text-sm font-semibold text-foreground">
-                  {formatShortDate(returnDate)}
-                </span>
-                <input
-                  ref={returnInputRef}
+              <div className="border-t border-line sm:border-l sm:border-t-0">
+                <DatePicker
                   name="returnDate"
-                  type="date"
+                  label="Return"
                   required
                   value={returnDate}
                   min={departDate}
-                  aria-label="Return date"
-                  onChange={(e) => setReturnDate(e.target.value)}
-                  onClick={() => openDatePicker(returnInputRef.current)}
-                  className="absolute inset-0 z-[1] cursor-pointer opacity-0"
+                  onChange={setReturnDate}
+                  variant="card"
                 />
               </div>
             ) : null}
@@ -325,7 +285,7 @@ export function SearchForm({
           </button>
 
           {paxOpen ? (
-            <div className="mt-2 rounded-2xl border border-line bg-white shadow-[0_18px_50px_rgba(16,35,28,0.16)]">
+            <div className="mt-2 rounded-2xl border border-line bg-white shadow-[0_18px_50px_rgba(15, 23, 42,0.16)]">
               <div className="grid gap-0 sm:grid-cols-2">
                 <div className="space-y-3 border-b border-line p-4 sm:border-b-0 sm:border-r">
                   <p className="text-sm font-bold text-accent-deep">Class</p>
@@ -413,7 +373,7 @@ export function SearchForm({
                 <button
                   type="button"
                   onClick={() => setPaxOpen(false)}
-                  className="rounded-full bg-accent-deep px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-accent"
+                  className="btn-cta px-6 py-2.5 text-sm"
                 >
                   Confirm
                 </button>
@@ -435,7 +395,7 @@ export function SearchForm({
           <button
             type="submit"
             disabled={airports.length < 2}
-            className="inline-flex min-h-12 items-center justify-center rounded-full bg-accent-deep px-8 text-sm font-semibold text-white transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn-cta inline-flex min-h-12 px-8 text-sm disabled:cursor-not-allowed disabled:opacity-50"
           >
             Search flights
           </button>
@@ -451,8 +411,8 @@ export function SearchForm({
       method="get"
       className={
         isHero
-          ? "space-y-6 bg-surface/95 p-5 shadow-[0_24px_60px_rgba(16,35,28,0.18)] backdrop-blur-sm sm:p-7"
-          : "space-y-4 border border-line bg-surface p-6"
+          ? "glass-panel space-y-6 rounded-2xl p-5 shadow-[0_24px_60px_rgba(15,23,42,0.18)] sm:p-7"
+          : "space-y-4 rounded-2xl border border-line bg-surface p-6"
       }
     >
       <div className="flex flex-wrap gap-2">
@@ -554,36 +514,27 @@ export function SearchForm({
           </select>
         </div>
         <div className="space-y-1">
-          <label
-            htmlFor="date"
-            className="text-xs font-medium uppercase tracking-[0.14em] text-muted"
-          >
-            Depart
-          </label>
-          <input
+          <DatePicker
             id="date"
             name="date"
-            type="date"
-            defaultValue={initialValues?.date ?? defaultDate(3)}
+            label="Depart"
             required
-            className={fieldClass}
+            value={departDate}
+            onChange={setDepartDate}
+            variant="field"
           />
         </div>
         {tripType === "round_trip" && (
           <div className="space-y-1">
-            <label
-              htmlFor="returnDate"
-              className="text-xs font-medium uppercase tracking-[0.14em] text-muted"
-            >
-              Return
-            </label>
-            <input
+            <DatePicker
               id="returnDate"
               name="returnDate"
-              type="date"
-              defaultValue={initialValues?.returnDate ?? defaultDate(7)}
+              label="Return"
               required
-              className={fieldClass}
+              value={returnDate}
+              min={departDate}
+              onChange={setReturnDate}
+              variant="field"
             />
           </div>
         )}
@@ -591,7 +542,7 @@ export function SearchForm({
           <button
             type="submit"
             disabled={airports.length < 2}
-            className="w-full rounded-full bg-accent px-4 py-3.5 text-sm font-semibold tracking-wide text-white transition hover:bg-accent-deep disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn-cta w-full px-4 py-3.5 text-sm tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
           >
             Search flights
           </button>

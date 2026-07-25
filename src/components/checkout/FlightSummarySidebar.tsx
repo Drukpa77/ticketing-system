@@ -28,7 +28,7 @@ export function FlightSummarySidebar({
   const totalCents = quote.quotedPriceCents * adults;
 
   return (
-    <aside className="rounded-2xl border border-line bg-white p-5 shadow-[0_10px_32px_rgba(16,35,28,0.08)] sm:p-6 lg:sticky lg:top-24">
+    <aside className="rounded-2xl border border-line bg-white p-5 shadow-[0_10px_32px_rgba(15, 23, 42,0.08)] sm:p-6 lg:sticky lg:top-24">
       <SegmentBlock
         label="Departure"
         origin={quote.flight.origin}
@@ -133,11 +133,11 @@ function SegmentBlock({
 
       <div className="mt-3 flex items-center gap-3 rounded-xl bg-accent/8 px-3 py-3">
         <img
-          src="/airline-mark.svg"
+          src="/drukair_logo.png"
           alt=""
-          width={28}
-          height={28}
-          className="size-7 rounded-lg"
+          width={56}
+          height={56}
+          className="size-12 shrink-0 rounded-xl object-contain sm:size-14"
         />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-accent-deep">

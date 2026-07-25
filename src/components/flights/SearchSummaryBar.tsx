@@ -33,28 +33,28 @@ export function SearchSummaryBar({
 
   return (
     <section
-      className={`results-banner relative bg-accent-deep px-3 pb-5 pt-4 sm:px-6 sm:pb-7 sm:pt-6 ${
+      className={`results-banner theme-banner relative px-3 pb-5 pt-4 sm:px-6 sm:pb-7 sm:pt-6 ${
         modifyOpen ? "overflow-visible z-20" : "overflow-hidden"
       }`}
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-40"
+        className="pointer-events-none absolute inset-0 opacity-50"
         style={{
           backgroundImage: `
-            radial-gradient(ellipse at 12% 20%, rgba(255,255,255,0.14), transparent 42%),
-            radial-gradient(ellipse at 88% 80%, rgba(26,107,74,0.55), transparent 48%)
+            radial-gradient(ellipse at 12% 20%, rgba(255,255,255,0.18), transparent 42%),
+            radial-gradient(ellipse at 88% 80%, rgba(220, 38, 38,0.35), transparent 48%)
           `,
         }}
       />
       <div className="relative mx-auto w-full max-w-6xl">
         {title ? (
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/70 sm:mb-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/80 sm:mb-3">
             {title}
           </p>
         ) : null}
 
-        <div className="results-rise relative z-10 overflow-visible rounded-2xl bg-white shadow-[0_16px_40px_rgba(15,61,46,0.18)]">
+        <div className="results-rise glass-panel relative z-10 overflow-visible rounded-2xl shadow-[0_16px_40px_rgba(15,23,42,0.22)]">
           {!modifyOpen ? (
             <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-5">
               <div className="flex min-w-0 flex-1 flex-col gap-2 text-sm text-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-2">
@@ -94,7 +94,7 @@ export function SearchSummaryBar({
               <button
                 type="button"
                 onClick={() => setModifyOpen(true)}
-                className="inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-full border border-accent/30 bg-surface px-5 py-2 text-sm font-semibold text-accent-deep transition hover:border-accent hover:bg-white sm:w-auto"
+                className="btn-secondary min-h-11 w-full shrink-0 px-5 py-2 text-sm sm:w-auto"
               >
                 Modify search
               </button>

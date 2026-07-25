@@ -1,16 +1,56 @@
 @import "tailwindcss";
 
 :root {
-  --background: #e9f0ec;
-  --foreground: #10231c;
-  --accent: #1a6b4a;
-  --accent-deep: #0f3d2e;
-  --surface: #f4f8f6;
-  --line: #c5d5cc;
-  --muted: #4d6359;
+  /* Core palette */
+  --blue-deep: #1e3a8a;
+  --blue-royal: #2563eb;
+  --blue-sky: #60a5fa;
+  --blue-mid: #3b82f6;
+  --red-deep: #991b1b;
+  --red-vivid: #dc2626;
+  --red-coral: #f87171;
+  --red-bright: #ef4444;
+
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --accent: #2563eb;
+  --accent-deep: #1e3a8a;
+  --accent-red: #dc2626;
+  --surface: #ffffff;
+  --line: #e2e8f0;
+  --muted: #64748b;
+  --success: #16a34a;
+
   --header-h: 4.5rem;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-top: env(safe-area-inset-top, 0px);
+
+  /* Gradients */
+  --grad-cta: linear-gradient(135deg, #1e3a8a 0%, #2563eb 45%, #dc2626 100%);
+  --grad-hover: linear-gradient(135deg, #3b82f6 0%, #60a5fa 40%, #f87171 100%);
+  --grad-card-accent: linear-gradient(90deg, #2563eb 0%, #dc2626 100%);
+  --grad-badge-info: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
+  --grad-badge-promo: linear-gradient(135deg, #ef4444 0%, #991b1b 100%);
+  --grad-heading: linear-gradient(90deg, #1e3a8a 0%, #dc2626 100%);
+  --grad-subtle-blue: linear-gradient(160deg, #1e3a8a 0%, #2563eb 100%);
+  --grad-page: radial-gradient(
+      ellipse at 12% 0%,
+      rgba(37, 99, 235, 0.12),
+      transparent 42%
+    ),
+    radial-gradient(
+      ellipse at 88% 8%,
+      rgba(220, 38, 38, 0.08),
+      transparent 38%
+    ),
+    linear-gradient(180deg, #f8fafc 0%, #eef2ff 45%, #f8fafc 100%);
+
+  --shadow-cta: 0 8px 24px rgba(37, 99, 235, 0.25),
+    0 4px 8px rgba(220, 38, 38, 0.15);
+  --shadow-card: 0 8px 28px rgba(15, 23, 42, 0.07);
+  --shadow-card-hover: 0 12px 32px rgba(15, 23, 42, 0.12);
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.3);
 }
 
 @theme inline {
@@ -18,6 +58,7 @@
   --color-foreground: var(--foreground);
   --color-accent: var(--accent);
   --color-accent-deep: var(--accent-deep);
+  --color-accent-red: var(--accent-red);
   --color-surface: var(--surface);
   --color-line: var(--line);
   --color-muted: var(--muted);
@@ -33,7 +74,8 @@ html {
 }
 
 body {
-  background: var(--background);
+  background: var(--grad-page);
+  background-attachment: fixed;
   color: var(--foreground);
   font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
   overflow-x: clip;
@@ -48,7 +90,6 @@ textarea {
   max-width: 100%;
 }
 
-/* Native date inputs often overflow on iOS without this. */
 input[type="date"],
 input[type="datetime-local"],
 select {
@@ -62,6 +103,202 @@ select {
 
 .pb-safe {
   padding-bottom: max(1rem, var(--safe-bottom));
+}
+
+/* —— Primary CTA —— */
+.btn-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-image: var(--grad-cta);
+  background-color: var(--blue-royal);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 9999px;
+  border: none;
+  box-shadow: var(--shadow-cta);
+  transition: transform 250ms ease, box-shadow 250ms ease, filter 250ms ease,
+    background-image 250ms ease;
+}
+
+.btn-cta:hover:not(:disabled) {
+  background-image: var(--grad-hover);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.3),
+    0 6px 12px rgba(220, 38, 38, 0.18);
+}
+
+.btn-cta:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-cta:disabled {
+  background-image: none;
+  background-color: #94a3b8;
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+  color: #fff;
+}
+
+/* —— Secondary / outline —— */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: var(--blue-royal);
+  font-weight: 600;
+  border-radius: 9999px;
+  border: 1.5px solid transparent;
+  background-image: linear-gradient(#fff, #fff), var(--grad-cta);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  transition: all 250ms ease;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-image: linear-gradient(rgba(239, 246, 255, 0.95), rgba(254, 242, 242, 0.9)),
+    var(--grad-hover);
+  transform: translateY(-1px);
+}
+
+/* —— Glass —— */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+}
+
+/* —— Cards —— */
+.card-elevated {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-card);
+  transition: transform 250ms ease, box-shadow 250ms ease, border-color 250ms ease;
+}
+
+.card-elevated:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.card-featured {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-featured::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--grad-card-accent);
+  z-index: 1;
+}
+
+/* —— Badges —— */
+.badge-info {
+  display: inline-flex;
+  align-items: center;
+  background-image: var(--grad-badge-info);
+  color: #fff;
+  border-radius: 9999px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+}
+
+.badge-promo {
+  display: inline-flex;
+  align-items: center;
+  background-image: var(--grad-badge-promo);
+  color: #fff;
+  border-radius: 9999px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.28);
+}
+
+/* —— Heading gradient (sparing) —— */
+.heading-gradient {
+  background: var(--grad-heading);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* —— Soft page banner wash —— */
+.theme-banner {
+  background-color: var(--blue-royal);
+  background-image: var(--grad-cta);
+}
+
+/* Active pill toggles (trip type, filters) with depth */
+label.bg-accent-deep.text-white,
+[role="tab"].bg-accent-deep {
+  background-color: transparent !important;
+  background-image: var(--grad-cta) !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.22);
+}
+
+.theme-icon-chip {
+  background: linear-gradient(
+    145deg,
+    rgba(37, 99, 235, 0.12),
+    rgba(220, 38, 38, 0.1)
+  );
+}
+
+/* Primary buttons that still use Tailwind accent fills → gradient */
+button.bg-accent-deep,
+a.bg-accent-deep,
+.bg-accent-deep.text-white {
+  background-color: transparent !important;
+  background-image: var(--grad-cta) !important;
+  box-shadow: var(--shadow-cta);
+  transition: transform 250ms ease, box-shadow 250ms ease, filter 250ms ease;
+}
+
+button.bg-accent-deep:hover:not(:disabled),
+a.bg-accent-deep:hover,
+.bg-accent-deep.text-white:hover {
+  background-image: var(--grad-hover) !important;
+  transform: translateY(-1px);
+}
+
+button.bg-accent:not([class*="/"]),
+a.bg-accent:not([class*="/"]) {
+  background-color: transparent !important;
+  background-image: var(--grad-badge-info) !important;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.22);
+  transition: transform 250ms ease, box-shadow 250ms ease;
+}
+
+button.bg-accent:not([class*="/"]):hover:not(:disabled),
+a.bg-accent:not([class*="/"]):hover {
+  background-image: var(--grad-hover) !important;
+  transform: translateY(-1px);
+}
+
+button:disabled.bg-accent-deep,
+button:disabled.bg-accent {
+  background-image: none !important;
+  background-color: #94a3b8 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Soft interactive transitions site-wide */
+a,
+button,
+[role="button"],
+.results-card,
+.card-elevated {
+  transition-property: color, background-color, background-image, border-color,
+    box-shadow, transform, opacity, filter;
+  transition-duration: 250ms;
+  transition-timing-function: ease;
 }
 
 @keyframes home-rise {
@@ -135,6 +372,13 @@ select {
 
 .results-card {
   animation: results-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: transform 250ms ease, box-shadow 250ms ease, border-color 250ms ease;
+}
+
+.results-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-card-hover);
+  border-color: rgba(37, 99, 235, 0.35);
 }
 
 .results-banner {
@@ -149,5 +393,11 @@ select {
   .results-card,
   .results-banner {
     animation: none;
+  }
+
+  .results-card:hover,
+  .card-elevated:hover,
+  .btn-cta:hover:not(:disabled) {
+    transform: none;
   }
 }

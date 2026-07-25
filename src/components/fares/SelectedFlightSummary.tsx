@@ -23,7 +23,7 @@ export function SelectedFlightSummary({
   returnFlight?: Leg | null;
 }) {
   return (
-    <section className="rounded-2xl border border-line bg-white p-4 shadow-[0_10px_28px_rgba(16,35,28,0.05)] sm:p-6">
+    <section className="rounded-2xl border border-line bg-white p-4 shadow-[0_10px_28px_rgba(15, 23, 42,0.05)] sm:p-6">
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
         Selected flight
       </p>
@@ -48,14 +48,13 @@ function FlightLegRow({ leg, label }: { leg: Leg; label?: string }) {
         </p>
       ) : null}
       <div className="mb-3 flex min-w-0 flex-wrap items-center gap-2 text-sm font-semibold">
-        <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-deep text-[10px] font-bold text-white">
-          {leg.airline
-            .split(/\s+/)
-            .slice(0, 2)
-            .map((w) => w[0])
-            .join("")
-            .toUpperCase()}
-        </span>
+        <img
+          src="/drukair_logo.png"
+          alt=""
+          width={72}
+          height={72}
+          className="size-16 shrink-0 rounded-xl object-contain sm:size-[4.5rem]"
+        />
         <span className="min-w-0 truncate">
           {leg.airline}{" "}
           <span className="font-medium text-muted">{leg.flightNumber}</span>

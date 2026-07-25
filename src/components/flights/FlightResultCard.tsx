@@ -24,17 +24,17 @@ export function FlightResultCard({
     flight.economy?.href ?? flight.business?.href ?? "#";
 
   return (
-    <article className="results-card overflow-hidden rounded-2xl border border-line bg-white shadow-[0_8px_28px_rgba(16,35,28,0.07)]">
+    <article className="results-card overflow-hidden rounded-2xl border border-line bg-white shadow-[0_8px_28px_rgba(15,23,42,0.07)]">
       <div className="flex flex-col gap-5 p-4 sm:p-5 lg:flex-row lg:items-stretch lg:gap-6 lg:p-6">
         {/* Schedule column */}
         <div className="flex min-w-0 flex-1 flex-col justify-center">
           <div className="mb-4 flex min-w-0 items-center gap-2.5">
             <img
-              src="/airline-mark.svg"
+              src="/drukair_logo.png"
               alt=""
-              width={32}
-              height={32}
-              className="size-8 shrink-0 rounded-[10px]"
+              width={56}
+              height={56}
+              className="size-12 shrink-0 rounded-[12px] object-contain sm:size-14"
             />
             <p className="min-w-0 truncate font-[family-name:var(--font-syne)] text-sm font-bold tracking-tight text-accent-deep sm:text-base">
               {flight.airline}{" "}
@@ -59,7 +59,7 @@ export function FlightResultCard({
               </p>
               <div className="flex w-full items-center gap-1.5">
                 <span className="h-px flex-1 bg-line" />
-                <span className="rounded-full bg-[#eef3f0] px-2.5 py-0.5 text-[10px] font-semibold text-foreground sm:text-[11px]">
+                <span className="badge-info px-2.5 py-0.5 text-[10px] sm:text-[11px]">
                   {stopLabel}
                 </span>
                 <span className="h-px flex-1 bg-line" />
@@ -197,10 +197,11 @@ function CabinPriceCard({
 
       {isLowest && !soldOut ? (
         <span
-          className="absolute bottom-2 right-2 inline-block size-0 border-x-[7px] border-b-[11px] border-x-transparent border-b-accent"
+          className="badge-promo absolute bottom-2 right-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
           title="Lowest fare"
-          aria-label="Lowest fare"
-        />
+        >
+          Lowest
+        </span>
       ) : null}
     </>
   );
@@ -216,7 +217,7 @@ function CabinPriceCard({
   return (
     <Link
       href={fare.href}
-      className="relative flex min-h-[8.5rem] flex-col rounded-xl border border-line bg-white px-3.5 py-3.5 transition hover:border-accent hover:shadow-[0_6px_18px_rgba(16,35,28,0.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      className="relative flex min-h-[8.5rem] flex-col rounded-xl border border-line bg-white px-3.5 py-3.5 transition hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_10px_24px_rgba(15,23,42,0.1)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
       {inner}
     </Link>

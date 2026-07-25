@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { InvoiceDeliveryActions } from "@/components/checkout/InvoiceDeliveryActions";
 import { getBrand } from "@/lib/branding";
 import { prisma } from "@/lib/db";
 import { airportLabel, formatFlightTime } from "@/lib/format";
@@ -7,10 +8,13 @@ import { formatAud } from "@/lib/pricing";
 
 export default async function ConfirmationPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ bookingId: string }>;
+  searchParams: Promise<{ invoice?: string; emailed?: string }>;
 }) {
   const { bookingId } = await params;
+  const query = await searchParams;
   const brand = getBrand();
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
@@ -22,6 +26,13 @@ export default async function ConfirmationPage({
   const invoice = booking.invoice;
   const unpaid = invoice?.status === "unpaid";
   const paid = invoice?.status === "paid" || booking.status === "confirmed";
+  const justCreatedInvoice = query.invoice === "1";
+  const initialEmailed =
+    query.emailed === "1" ? true : query.emailed === "0" ? false : null;
+  const showBankInvoiceActions =
+    Boolean(invoice) &&
+    booking.paymentMethod === "bank_transfer" &&
+    unpaid;
   const fareOnlyCents =
     invoice?.fareCents ||
     (booking.quote
@@ -40,23 +51,39 @@ export default async function ConfirmationPage({
         className="pointer-events-none absolute inset-0"
         style={{
           backgroundImage: `
-            radial-gradient(ellipse at 20% 0%, rgba(26, 107, 74, 0.16), transparent 40%),
-            linear-gradient(180deg, #e9f0ec 0%, #f4f8f6 100%)
+            radial-gradient(ellipse at 20% 0%, rgba(37, 99, 235, 0.16), transparent 40%),
+            radial-gradient(ellipse at 90% 10%, rgba(220, 38, 38, 0.08), transparent 36%),
+            linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%)
           `,
         }}
       />
 
       <div className="relative mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
         <div className="rounded-2xl border border-line bg-surface/90 p-5 backdrop-blur-sm sm:rounded-none sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
-            {brand.airlineName}
-          </p>
+          <div className="flex items-center gap-3">
+            <img
+              src={brand.logoPath}
+              alt=""
+              width={40}
+              height={40}
+              className="size-10 object-contain"
+            />
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
+              {brand.airlineName}
+            </p>
+          </div>
           <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted">
             {unpaid
               ? "Booking reserved · awaiting payment"
               : "Booking confirmed"}
           </p>
-          <h1 className="mt-3 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
+          {justCreatedInvoice && showBankInvoiceActions ? (
+            <p className="mt-3 rounded-xl border border-accent/20 bg-[linear-gradient(135deg,rgba(37,99,235,0.08),rgba(220,38,38,0.06))] px-4 py-3 text-sm text-foreground">
+              Your unpaid invoice is ready. View it below, or email it to{" "}
+              <span className="font-semibold">{booking.email}</span>.
+            </p>
+          ) : null}
+          <h1 className="heading-gradient mt-3 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
             {booking.bookingRef}
           </h1>
           <p className="mt-2 text-sm text-muted">
@@ -137,32 +164,50 @@ export default async function ConfirmationPage({
             )}
           </div>
 
-          <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <Link
-              href={`/documents/eticket/${encodeURIComponent(booking.bookingRef)}`}
-              className={`inline-flex min-h-11 items-center justify-center rounded-full px-4 py-2.5 text-sm font-semibold transition ${
-                paid
-                  ? "bg-accent-deep text-white hover:bg-accent"
-                  : "border border-line text-foreground hover:border-accent"
-              }`}
-              target="_blank"
-            >
-              View travel document
-            </Link>
-            {invoice && (
-              <Link
-                href={`/documents/invoice/${encodeURIComponent(invoice.invoiceNumber)}`}
-                className={`inline-flex min-h-11 items-center justify-center rounded-full px-4 py-2.5 text-sm font-semibold transition ${
+          {showBankInvoiceActions && invoice ? (
+            <div className="mt-6 rounded-2xl border border-line bg-white/80 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+                Your unpaid invoice
+              </p>
+              <p className="mt-1 font-[family-name:var(--font-syne)] text-xl font-semibold">
+                {invoice.invoiceNumber}
+              </p>
+              <p className="mt-2 text-sm text-muted">
+                Outstanding{" "}
+                <span className="font-semibold text-foreground">
+                  {formatAud(invoice.amountCents)}
+                </span>
+              </p>
+              <div className="mt-4">
+                <InvoiceDeliveryActions
+                  bookingId={booking.id}
+                  invoiceNumber={invoice.invoiceNumber}
+                  customerEmail={booking.email}
                   unpaid
-                    ? "bg-accent-deep text-white hover:bg-accent"
-                    : "border border-line text-foreground hover:border-accent"
-                }`}
+                  initialEmailed={justCreatedInvoice ? initialEmailed : null}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <Link
+                href={`/documents/eticket/${encodeURIComponent(booking.bookingRef)}`}
+                className={`${paid ? "btn-cta" : "btn-secondary"} min-h-11 px-4 py-2.5 text-sm`}
                 target="_blank"
               >
-                View airfare invoice
+                View travel document
               </Link>
-            )}
-          </div>
+              {invoice && (
+                <Link
+                  href={`/documents/invoice/${encodeURIComponent(invoice.invoiceNumber)}`}
+                  className="btn-secondary min-h-11 px-4 py-2.5 text-sm"
+                  target="_blank"
+                >
+                  View airfare invoice
+                </Link>
+              )}
+            </div>
+          )}
 
           {invoice && (
             <div className="mt-8 border border-line bg-white/70 p-5">
@@ -227,6 +272,24 @@ export default async function ConfirmationPage({
                       return to the ticket pool.
                     </p>
                   ) : null}
+
+                  <div className="mt-5 rounded-xl border border-accent/20 bg-[linear-gradient(135deg,rgba(37,99,235,0.08),rgba(220,38,38,0.06))] p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-deep">
+                      Transaction instructions
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed text-foreground">
+                      This invoice is unpaid — no card payment was taken. After
+                      you transfer the funds, email a screenshot of the payment
+                      to{" "}
+                      <a
+                        href={`mailto:${brand.paymentProofEmail}`}
+                        className="font-semibold text-accent underline"
+                      >
+                        {brand.paymentProofEmail}
+                      </a>{" "}
+                      so we can confirm your booking and issue your e-ticket.
+                    </p>
+                  </div>
                 </dl>
               )}
 
@@ -239,18 +302,27 @@ export default async function ConfirmationPage({
                 </p>
               )}
 
-              <p className="mt-4 text-sm text-muted">
-                {unpaid
-                  ? "A bank-transfer email with the airfare invoice is sent when email is configured. Admin can preview, edit, and resend from Invoices."
-                  : "A confirmation email with your travel document and airfare invoice is sent when email is configured."}
-              </p>
+              {!showBankInvoiceActions ? (
+                <p className="mt-4 text-sm text-muted">
+                  {unpaid
+                    ? "Your unpaid airfare invoice email is sent when email is configured."
+                    : "A confirmation email with your travel document and airfare invoice is sent when email is configured."}
+                </p>
+              ) : (
+                <div className="mt-5">
+                  <Link
+                    href={`/documents/eticket/${encodeURIComponent(booking.bookingRef)}`}
+                    className="btn-secondary min-h-11 px-4 py-2.5 text-sm"
+                    target="_blank"
+                  >
+                    Preview travel document
+                  </Link>
+                </div>
+              )}
             </div>
           )}
 
-          <Link
-            href="/"
-            className="mt-8 inline-flex bg-accent-deep px-5 py-3 text-sm font-semibold text-white transition hover:bg-accent"
-          >
+          <Link href="/" className="btn-cta mt-8 px-5 py-3 text-sm">
             Search again
           </Link>
         </div>

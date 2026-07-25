@@ -19,7 +19,7 @@ export function BookSubmitButton({
       disabled={disabled || pending}
       className={
         className ??
-        "inline-flex items-center justify-center rounded-full bg-accent-deep px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent disabled:cursor-not-allowed disabled:bg-zinc-400"
+        "btn-cta min-h-11 px-5 py-2.5 text-sm disabled:cursor-not-allowed"
       }
     >
       {pending ? "Locking price…" : label}

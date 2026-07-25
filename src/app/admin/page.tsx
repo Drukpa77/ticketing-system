@@ -90,17 +90,26 @@ export default async function AdminPage({
           className="pointer-events-none absolute inset-0"
           style={{
             backgroundImage: `
-              radial-gradient(ellipse at 15% 20%, rgba(26, 107, 74, 0.18), transparent 45%),
-              radial-gradient(ellipse at 85% 80%, rgba(15, 61, 46, 0.12), transparent 40%),
-              linear-gradient(165deg, #e9f0ec 0%, #f4f8f6 55%, #dde8e2 100%)
+              radial-gradient(ellipse at 15% 20%, rgba(37, 99, 235, 0.18), transparent 45%),
+              radial-gradient(ellipse at 85% 80%, rgba(220, 38, 38, 0.1), transparent 40%),
+              linear-gradient(165deg, #F8FAFC 0%, #FFFFFF 55%, #EEF2FF 100%)
             `,
           }}
         />
         <div className="relative w-full max-w-md">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
-            {process.env.NEXT_PUBLIC_BRAND_SHORT_NAME || "Drukair"}
-          </p>
-          <h1 className="mt-3 font-[family-name:var(--font-syne)] text-4xl font-semibold tracking-tight text-foreground">
+          <div className="flex items-center gap-3">
+            <img
+              src="/drukair_logo.png"
+              alt=""
+              width={40}
+              height={40}
+              className="size-10 object-contain"
+            />
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
+              {process.env.NEXT_PUBLIC_BRAND_SHORT_NAME || "Drukair"}
+            </p>
+          </div>
+          <h1 className="heading-gradient mt-3 font-[family-name:var(--font-syne)] text-4xl font-semibold tracking-tight">
             Operations
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-muted">
@@ -108,7 +117,7 @@ export default async function AdminPage({
           </p>
           <form
             action={login}
-            className="mt-8 space-y-5 border border-line bg-surface/90 p-6 backdrop-blur-sm"
+            className="glass-panel mt-8 space-y-5 rounded-2xl p-6 shadow-[0_16px_40px_rgba(15,23,42,0.08)]"
           >
             <label className="block space-y-2 text-sm">
               <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
@@ -124,7 +133,7 @@ export default async function AdminPage({
             </label>
             <button
               type="submit"
-              className="w-full bg-accent-deep py-3.5 text-sm font-semibold tracking-wide text-white transition hover:bg-accent"
+              className="btn-cta w-full rounded-xl py-3.5 text-sm tracking-wide"
             >
               Enter dashboard
             </button>
@@ -237,9 +246,9 @@ export default async function AdminPage({
         className="pointer-events-none absolute inset-0"
         style={{
           backgroundImage: `
-            radial-gradient(ellipse at 10% 0%, rgba(26, 107, 74, 0.14), transparent 42%),
-            radial-gradient(ellipse at 90% 20%, rgba(15, 61, 46, 0.08), transparent 36%),
-            linear-gradient(180deg, #e9f0ec 0%, #f4f8f6 40%, #e9f0ec 100%)
+            radial-gradient(ellipse at 10% 0%, rgba(37, 99, 235, 0.14), transparent 42%),
+            radial-gradient(ellipse at 90% 20%, rgba(220, 38, 38, 0.08), transparent 36%),
+            linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 40%, #EEF2FF 100%)
           `,
         }}
       />
@@ -247,11 +256,20 @@ export default async function AdminPage({
       <div className="relative mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-12">
         <div className="flex flex-col gap-6 border-b border-line pb-8 sm:flex-row sm:items-end sm:justify-between">
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
-              {process.env.NEXT_PUBLIC_BRAND_SHORT_NAME || "Drukair"} ·
-              Operations
-            </p>
-            <h1 className="mt-3 font-[family-name:var(--font-syne)] text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+            <div className="flex items-center gap-3">
+              <img
+                src="/drukair_logo.png"
+                alt=""
+                width={40}
+                height={40}
+                className="size-10 object-contain"
+              />
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
+                {process.env.NEXT_PUBLIC_BRAND_SHORT_NAME || "Drukair"} ·
+                Operations
+              </p>
+            </div>
+            <h1 className="heading-gradient mt-3 font-[family-name:var(--font-syne)] text-4xl font-semibold tracking-tight sm:text-5xl">
               Dashboard
             </h1>
             <p className="mt-3 text-sm leading-relaxed text-muted sm:text-base">

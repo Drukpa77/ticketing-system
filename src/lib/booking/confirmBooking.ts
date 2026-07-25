@@ -216,7 +216,8 @@ export async function confirmBooking(input: {
   } | null;
 }) {
   try {
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(
+      async (tx) => {
       const quote = await tx.priceQuote.findUnique({
         where: { id: input.quoteId },
       });
@@ -388,7 +389,13 @@ export async function confirmBooking(input: {
       });
 
       return { booking, invoice };
-    });
+      },
+      {
+        // Railway / remote Postgres can be slow under admin polling load.
+        maxWait: 15_000,
+        timeout: 30_000,
+      },
+    );
 
     return { ok: true as const, ...result };
   } catch (error) {

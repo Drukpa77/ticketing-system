@@ -438,7 +438,8 @@ export function renderAirfareInvoiceHtml(data: BookingDocumentData) {
         <div class="row"><span>BSB:</span><span>${esc(invoice.bankBsb || "—")}</span></div>
         <div class="row"><span>Account no. :</span><span>${esc(invoice.bankAccountNumber || "—")}</span></div>
         <div class="ref">Reference: Invoice Number / Passenger Name</div>
-        <p style="margin:8px 0 0;font-size:12px;color:#444">Please use <strong>${esc(invoice.bankReference || invoice.invoiceNumber)} / ${esc(data.passengerName)}</strong> as the payment reference.</p>`
+        <p style="margin:8px 0 0;font-size:12px;color:#444">Please use <strong>${esc(invoice.bankReference || invoice.invoiceNumber)} / ${esc(data.passengerName)}</strong> as the payment reference.</p>
+        <p style="margin:10px 0 0;font-size:12px;color:#444"><strong>Transaction instructions:</strong> This invoice is unpaid. After you transfer the funds, email a screenshot of the payment to <strong>${esc(brand.paymentProofEmail)}</strong> so your booking can be confirmed.</p>`
             : `
         <div class="row"><span>Status:</span><span>Paid</span></div>
         <div class="row"><span>Form of Payment:</span><span>${

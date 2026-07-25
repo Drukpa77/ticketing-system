@@ -1,18 +1,25 @@
 export function getBrand() {
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    process.env.SITE_URL?.trim() ||
+    "http://localhost:3000";
+  const logoPath = "/drukair_logo.png";
+
   return {
     airlineName:
       process.env.BRAND_AIRLINE_NAME?.trim() ||
       "Drukair – Royal Bhutan Airlines",
     shortName: process.env.BRAND_SHORT_NAME?.trim() || "Drukair",
+    /** Public path for the brand mark (UI). */
+    logoPath,
+    /** Absolute logo URL for emails / external HTML. */
+    logoUrl: `${siteUrl.replace(/\/$/, "")}${logoPath}`,
     bookingPrefix: process.env.BRAND_BOOKING_PREFIX?.trim() || "DRK",
     reservationsTeam:
       process.env.BRAND_RESERVATIONS_TEAM?.trim() || "Chartered Flight Team",
     supportEmail:
       process.env.BRAND_SUPPORT_EMAIL?.trim() || "ticketing@lbglobal.com.au",
-    siteUrl:
-      process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
-      process.env.SITE_URL?.trim() ||
-      "http://localhost:3000",
+    siteUrl,
     carryOnKg: process.env.BRAND_CARRY_ON_KG?.trim() || "7kg",
     checkedKg: process.env.BRAND_CHECKED_KG?.trim() || "23kg",
     arriveHoursBefore: Number(process.env.BRAND_ARRIVE_HOURS || "3"),
@@ -31,6 +38,9 @@ export function getBrand() {
       process.env.BRAND_AGENT_EMAIL?.trim() ||
       process.env.BRAND_SUPPORT_EMAIL?.trim() ||
       "ticketing@lbglobal.com.au",
+    /** Where customers send bank-transfer payment screenshots for confirmation. */
+    paymentProofEmail:
+      process.env.BRAND_PAYMENT_PROOF_EMAIL?.trim() || "lbglobal@gmail.com.au",
     invoiceAccountNumber:
       process.env.BRAND_INVOICE_ACCOUNT_NUMBER?.trim() || "CA216212900",
     invoiceBusinessTpn:

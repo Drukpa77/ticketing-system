@@ -128,7 +128,7 @@ export function FlightResultsClient({
 
       <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-5">
         {visible.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-line bg-white px-6 py-14 text-center shadow-[0_8px_28px_rgba(16,35,28,0.05)]">
+          <div className="rounded-2xl border border-dashed border-line bg-white px-6 py-14 text-center shadow-[0_8px_28px_rgba(15, 23, 42,0.05)]">
             <p className="font-[family-name:var(--font-syne)] text-xl font-semibold">
               No flights found
             </p>

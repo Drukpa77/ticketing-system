@@ -12,6 +12,7 @@ type BankCheckoutFormProps = {
   quoteId: string;
   maxSeats: number;
   unitPriceCents: number;
+  paymentProofEmail: string;
   initialPassenger?: {
     passengerName?: string;
     email?: string;
@@ -32,6 +33,7 @@ export function BankCheckoutForm({
   quoteId,
   maxSeats,
   unitPriceCents,
+  paymentProofEmail,
   initialPassenger,
   bankPreview,
 }: BankCheckoutFormProps) {
@@ -65,12 +67,6 @@ export function BankCheckoutForm({
   return (
     <form action={action} className="space-y-8">
       <input type="hidden" name="quoteId" value={quoteId} />
-      <input type="hidden" name="passengerName" value={passengerName} />
-      <input type="hidden" name="email" value={email} />
-      <input type="hidden" name="passengerPhone" value={passengerPhone} />
-      <input type="hidden" name="passportNumber" value={passportNumber} />
-      <input type="hidden" name="nationality" value={nationality} />
-      <input type="hidden" name="seatsBooked" value={seatsBooked} />
 
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
@@ -80,8 +76,9 @@ export function BankCheckoutForm({
           Request an invoice
         </h2>
         <p className="mt-2 text-sm text-muted">
-          We hold your seats for 48 hours, email a tax invoice, and share bank
-          details with your booking reference as the payment description.
+          You are not charged online. We create an unpaid invoice with our bank
+          details, hold your seats for 48 hours, and confirm the booking after
+          your transfer is verified.
         </p>
       </div>
 
@@ -91,6 +88,7 @@ export function BankCheckoutForm({
             Full name
           </span>
           <input
+            name="passengerName"
             value={passengerName}
             onChange={(e) => setPassengerName(e.target.value)}
             className={fieldClass}
@@ -104,6 +102,7 @@ export function BankCheckoutForm({
             Email for invoice
           </span>
           <input
+            name="email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -118,6 +117,7 @@ export function BankCheckoutForm({
             Phone
           </span>
           <input
+            name="passengerPhone"
             value={passengerPhone}
             onChange={(e) => setPassengerPhone(e.target.value)}
             className={fieldClass}
@@ -130,6 +130,7 @@ export function BankCheckoutForm({
             Passport number
           </span>
           <input
+            name="passportNumber"
             value={passportNumber}
             onChange={(e) => setPassportNumber(e.target.value)}
             className={fieldClass}
@@ -141,6 +142,7 @@ export function BankCheckoutForm({
             Nationality
           </span>
           <input
+            name="nationality"
             value={nationality}
             onChange={(e) => setNationality(e.target.value)}
             className={fieldClass}
@@ -153,6 +155,7 @@ export function BankCheckoutForm({
               Seats
             </span>
             <input
+              name="seatsBooked"
               type="number"
               min={1}
               max={seatMax}
@@ -168,7 +171,7 @@ export function BankCheckoutForm({
           </label>
           <div className="text-right">
             <p className="text-xs uppercase tracking-[0.14em] text-muted">
-              Outstanding
+              Amount due
             </p>
             <p className="font-[family-name:var(--font-syne)] text-3xl font-semibold">
               {formatAud(totalCents)}
@@ -177,7 +180,7 @@ export function BankCheckoutForm({
         </div>
       </div>
 
-      <dl className="grid gap-2 border border-line bg-surface/60 p-5 text-sm">
+      <dl className="grid gap-2 rounded-2xl border border-line bg-surface/60 p-5 text-sm">
         <div className="flex justify-between gap-4">
           <dt className="text-muted">Bank</dt>
           <dd className="font-medium">{bankPreview.bankName}</dd>
@@ -194,24 +197,55 @@ export function BankCheckoutForm({
           <dt className="text-muted">Account</dt>
           <dd className="font-medium">{bankPreview.accountNumber}</dd>
         </div>
-        <div className="border-t border-line pt-3 text-xs leading-relaxed text-muted">
-          Seats stay on hold for 48 hours. If payment is not confirmed in that
-          window, the hold ends, seats return to the pool, and you will need to
-          book again.
-        </div>
       </dl>
 
-      {state?.error && <p className="text-sm text-red-700">{state.error}</p>}
+      <div className="rounded-2xl border border-accent/25 bg-[linear-gradient(135deg,rgba(37,99,235,0.08),rgba(220,38,38,0.06))] p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-deep">
+          Transaction instructions
+        </p>
+        <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-foreground">
+          <li>
+            Request your unpaid invoice below — no online payment is taken.
+          </li>
+          <li>
+            Transfer the outstanding amount using your booking reference as the
+            payment description.
+          </li>
+          <li>
+            Email a screenshot of the successful transfer to{" "}
+            <a
+              href={`mailto:${paymentProofEmail}`}
+              className="font-semibold text-accent underline"
+            >
+              {paymentProofEmail}
+            </a>{" "}
+            so we can confirm your booking.
+          </li>
+        </ol>
+        <p className="mt-3 text-xs leading-relaxed text-muted">
+          Seats stay on hold for 48 hours. If payment is not verified in that
+          window, the hold ends and you will need to book again.
+        </p>
+      </div>
+
+      {state?.error ? (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {state.error}
+        </p>
+      ) : null}
 
       <button
         type="submit"
         disabled={pending || !passengerOk}
-        className="w-full bg-accent-deep py-3.5 text-sm font-semibold tracking-wide text-white transition hover:bg-accent disabled:bg-muted"
+        className="btn-cta w-full rounded-xl py-3.5 text-sm tracking-wide"
       >
         {pending
-          ? "Creating invoice…"
-          : `Request invoice · ${formatAud(totalCents)}`}
+          ? "Creating unpaid invoice…"
+          : `Get unpaid invoice · ${formatAud(totalCents)}`}
       </button>
+      <p className="-mt-4 text-center text-xs text-muted">
+        Next you’ll be able to view the invoice online and email it to yourself.
+      </p>
 
       <p className="text-sm text-muted">
         Prefer card?{" "}

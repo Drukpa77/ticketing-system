@@ -8,6 +8,7 @@ import {
 } from "@/components/checkout/CheckoutShell";
 import { getCheckoutQuoteState } from "@/lib/checkout/loadQuote";
 import { passengerDraftFromQuote } from "@/lib/checkout/passengerDraft";
+import { getBrand } from "@/lib/branding";
 import {
   getBankTransferDetails,
   isBankTransferConfigured,
@@ -36,6 +37,8 @@ export default async function BankCheckoutPage({
     redirect(`/checkout/${quoteId}`);
   }
 
+  const brand = getBrand();
+
   return (
     <CheckoutShell
       backHref={`/checkout/${quoteId}`}
@@ -53,6 +56,7 @@ export default async function BankCheckoutPage({
               quoteId={quoteId}
               maxSeats={state.maxSeats}
               unitPriceCents={state.quote.quotedPriceCents}
+              paymentProofEmail={brand.paymentProofEmail}
               initialPassenger={draft}
               bankPreview={bank}
             />

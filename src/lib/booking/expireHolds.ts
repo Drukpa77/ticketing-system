@@ -11,8 +11,11 @@ export function holdExpiredEmail(data: BookingDocumentData) {
   const route = `${data.flight.origin} → ${data.flight.destination}`;
 
   const html = `
-  <div style="font-family:Georgia,serif;color:#10231c;line-height:1.55;max-width:640px">
-    <p style="color:#1a6b4a;letter-spacing:0.12em;text-transform:uppercase;font-size:12px">${brand.airlineName}</p>
+  <div style="font-family:Georgia,serif;color:#0F172A;line-height:1.55;max-width:640px">
+    <p style="margin:0 0 12px">
+      <img src="${brand.logoUrl}" alt="${brand.shortName}" width="56" height="56" style="display:block;width:56px;height:56px;object-fit:contain" />
+    </p>
+    <p style="color:#2563EB;letter-spacing:0.12em;text-transform:uppercase;font-size:12px">${brand.airlineName}</p>
     <h1 style="font-size:24px;margin:8px 0 16px">Seat hold has ended</h1>
     <p>Dear ${data.passengerName},</p>
     <p>Your bank-transfer booking <strong>${data.bookingRef}</strong> was held for 48 hours pending payment.</p>

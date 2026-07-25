@@ -43,11 +43,11 @@ export function PassengerDetailsForm({
       ) : null}
 
       {/* Passenger card */}
-      <section className="overflow-hidden rounded-2xl border border-line bg-white shadow-[0_8px_28px_rgba(16,35,28,0.06)]">
+      <section className="overflow-hidden rounded-2xl border border-line bg-white shadow-[0_8px_28px_rgba(15, 23, 42,0.06)]">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex w-full items-center justify-between gap-3 bg-accent-deep px-4 py-3.5 text-left text-white sm:px-5"
+          className="theme-banner flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left text-white sm:px-5"
         >
           <span className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-bold tracking-wide">PASSENGER 1</span>
@@ -201,7 +201,7 @@ export function PassengerDetailsForm({
       </section>
 
       {/* Contact */}
-      <section className="rounded-2xl border border-line bg-white p-4 shadow-[0_8px_28px_rgba(16,35,28,0.06)] sm:p-5">
+      <section className="rounded-2xl border border-line bg-white p-4 shadow-[0_8px_28px_rgba(15, 23, 42,0.06)] sm:p-5">
         <h2 className="font-[family-name:var(--font-syne)] text-lg font-bold text-accent-deep">
           Contact Information
         </h2>
@@ -253,7 +253,7 @@ export function PassengerDetailsForm({
       <div className="flex justify-end">
         <button
           type="submit"
-          className="inline-flex min-h-12 items-center justify-center rounded-full bg-accent-deep px-10 text-sm font-semibold text-white transition hover:bg-accent"
+          className="btn-cta min-h-12 px-10 text-sm"
         >
           Continue
         </button>

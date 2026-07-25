@@ -19,9 +19,9 @@ export function CheckoutShell({
         className="pointer-events-none absolute inset-0"
         style={{
           backgroundImage: `
-            radial-gradient(ellipse at 12% 10%, rgba(26, 107, 74, 0.16), transparent 42%),
-            radial-gradient(ellipse at 88% 80%, rgba(15, 61, 46, 0.1), transparent 40%),
-            linear-gradient(165deg, #e9f0ec 0%, #f4f8f6 55%, #dde8e2 100%)
+            radial-gradient(ellipse at 12% 10%, rgba(37, 99, 235, 0.16), transparent 42%),
+            radial-gradient(ellipse at 88% 80%, rgba(220, 38, 38, 0.08), transparent 40%),
+            linear-gradient(165deg, #F8FAFC 0%, #FFFFFF 55%, #EEF2FF 100%)
           `,
         }}
       />
@@ -61,8 +61,17 @@ export function QuoteSummaryCard({
           <p className="text-xs uppercase tracking-[0.14em] text-muted">
             Outbound
           </p>
-          <p className="mt-2 font-medium text-foreground">
-            {quote.flight.airline} {quote.flight.flightNumber}
+          <p className="mt-2 flex items-center gap-2 font-medium text-foreground">
+            <img
+              src="/drukair_logo.png"
+              alt=""
+              width={22}
+              height={22}
+              className="size-[22px] object-contain"
+            />
+            <span>
+              {quote.flight.airline} {quote.flight.flightNumber}
+            </span>
           </p>
           <p className="mt-1 break-words text-muted">
             {airportLabel(quote.flight.origin)} →{" "}
@@ -84,8 +93,17 @@ export function QuoteSummaryCard({
             <p className="text-xs uppercase tracking-[0.14em] text-muted">
               Return
             </p>
-            <p className="mt-2 font-medium text-foreground">
-              {quote.returnFlight.airline} {quote.returnFlight.flightNumber}
+            <p className="mt-2 flex items-center gap-2 font-medium text-foreground">
+              <img
+                src="/drukair_logo.png"
+                alt=""
+                width={22}
+                height={22}
+                className="size-[22px] object-contain"
+              />
+              <span>
+                {quote.returnFlight.airline} {quote.returnFlight.flightNumber}
+              </span>
             </p>
             <p className="mt-1 break-words text-muted">
               {airportLabel(quote.returnFlight.origin)} →{" "}
@@ -147,7 +165,7 @@ export function QuoteBlockedMessage({
         </p>
         <Link
           href="/"
-          className="inline-flex bg-accent-deep px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-accent"
+          className="btn-cta px-4 py-2.5 text-sm"
         >
           Search again
         </Link>

@@ -67,14 +67,14 @@ export function DateStrip({
   }
 
   return (
-    <div className="border-b border-line bg-[#e3ece7]">
+    <div className="border-b border-line bg-[linear-gradient(180deg,#EEF2FF_0%,#F8FAFC_100%)]">
       <div className="mx-auto flex w-full max-w-6xl items-stretch gap-2 px-3 py-3 sm:gap-3 sm:px-6">
         <button
           type="button"
           aria-label="Previous dates"
           disabled={!canPrev}
           onClick={() => setWindowStart((v) => Math.max(0, v - 1))}
-          className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line/80 bg-white/70 text-lg text-muted transition hover:border-accent hover:text-accent disabled:opacity-30"
+          className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line/80 bg-white/80 text-lg text-muted shadow-sm transition hover:border-accent hover:text-accent disabled:opacity-30"
         >
           ‹
         </button>
@@ -88,8 +88,8 @@ export function DateStrip({
                 href={hrefFor(day.date)}
                 className={`results-rise flex min-h-16 flex-col items-center justify-center rounded-xl px-1 py-2 text-center transition sm:min-h-[4.5rem] sm:px-2 sm:py-2.5 ${
                   isSelected
-                    ? "bg-white text-foreground shadow-[0_8px_20px_rgba(15,61,46,0.14)]"
-                    : "bg-transparent text-foreground hover:bg-white/50"
+                    ? "bg-white text-foreground shadow-[0_8px_20px_rgba(37,99,235,0.16)] ring-1 ring-accent/25"
+                    : "bg-transparent text-foreground hover:bg-white/70"
                 }`}
               >
                 <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted sm:text-[11px]">
@@ -120,7 +120,7 @@ export function DateStrip({
               Math.min(Math.max(0, dayFares.length - dayCount), v + 1),
             )
           }
-          className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line/80 bg-white/70 text-lg text-muted transition hover:border-accent hover:text-accent disabled:opacity-30"
+          className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line/80 bg-white/80 text-lg text-muted shadow-sm transition hover:border-accent hover:text-accent disabled:opacity-30"
         >
           ›
         </button>

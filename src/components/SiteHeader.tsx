@@ -2,34 +2,43 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export function SiteHeader({ cartCount = 0 }: { cartCount?: number }) {
   const pathname = usePathname();
   const onCart = pathname === "/cart";
 
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-white pt-[env(safe-area-inset-top,0px)]">
+    <header className="sticky top-0 z-30 border-b border-white/30 bg-[rgba(255,255,255,0.75)] pt-[env(safe-area-inset-top,0px)] shadow-[0_4px_24px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+      <div className="h-[3px] w-full bg-[linear-gradient(90deg,#2563EB_0%,#DC2626_100%)]" />
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
         <Link
           href="/"
-          className="min-w-0 truncate font-[family-name:var(--font-syne)] text-base font-semibold tracking-tight text-foreground sm:text-lg"
+          className="flex min-w-0 items-center gap-2.5 font-[family-name:var(--font-syne)] text-base font-semibold tracking-tight text-foreground sm:gap-3 sm:text-lg"
         >
-          {process.env.NEXT_PUBLIC_BRAND_SHORT_NAME || "Drukair"}
+          <BrandLogo size={36} className="size-8 sm:size-9" />
+          <span className="truncate">
+            {process.env.NEXT_PUBLIC_BRAND_SHORT_NAME || "Drukair"}
+          </span>
         </Link>
 
         <nav className="flex shrink-0 items-center gap-1 sm:gap-3">
           <Link
             href="/"
-            className={`inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium transition hover:text-foreground ${
-              pathname === "/" ? "text-foreground" : "text-muted"
+            className={`inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium transition ${
+              pathname === "/"
+                ? "bg-[linear-gradient(135deg,rgba(37,99,235,0.12),rgba(220,38,38,0.08))] font-semibold text-accent"
+                : "text-muted hover:text-foreground"
             }`}
           >
             Search
           </Link>
           <Link
             href="/admin"
-            className={`inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium transition hover:text-foreground ${
-              pathname.startsWith("/admin") ? "text-foreground" : "text-muted"
+            className={`inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium transition ${
+              pathname.startsWith("/admin")
+                ? "bg-[linear-gradient(135deg,rgba(37,99,235,0.12),rgba(220,38,38,0.08))] font-semibold text-accent"
+                : "text-muted hover:text-foreground"
             }`}
           >
             Admin
@@ -39,13 +48,13 @@ export function SiteHeader({ cartCount = 0 }: { cartCount?: number }) {
             aria-label={`Cart${cartCount > 0 ? `, ${cartCount} items` : ""}`}
             className={`relative inline-flex size-11 items-center justify-center rounded-full border transition ${
               onCart
-                ? "border-accent text-accent"
+                ? "border-accent text-accent shadow-[0_4px_14px_rgba(37,99,235,0.2)]"
                 : "border-line text-foreground hover:border-accent hover:text-accent"
             }`}
           >
             <CartIcon />
             {cartCount > 0 ? (
-              <span className="absolute -right-0.5 -top-0.5 inline-flex min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold leading-4 text-white">
+              <span className="badge-promo absolute -right-0.5 -top-0.5 inline-flex min-w-4 items-center justify-center px-1 text-[10px] font-bold leading-4">
                 {cartCount > 99 ? "99+" : cartCount}
               </span>
             ) : null}

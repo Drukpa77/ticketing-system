@@ -47,7 +47,7 @@ export default async function CheckoutPage({
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
                   Step 1
                 </p>
-                <h2 className="mt-2 font-[family-name:var(--font-syne)] text-2xl font-semibold tracking-tight">
+                <h2 className="heading-gradient mt-2 font-[family-name:var(--font-syne)] text-2xl font-semibold tracking-tight">
                   Choose how to pay
                 </h2>
                 <p className="mt-2 text-sm text-muted">
@@ -60,7 +60,7 @@ export default async function CheckoutPage({
                 {square.configured ? (
                   <Link
                     href={`/checkout/${quoteId}/card`}
-                    className="border border-line bg-surface/70 px-5 py-5 transition hover:border-accent hover:bg-accent/10"
+                    className="card-elevated rounded-2xl border border-line bg-surface/80 px-5 py-5 hover:border-accent/40"
                   >
                     <p className="font-[family-name:var(--font-syne)] text-lg font-semibold">
                       Pay by card
@@ -81,13 +81,14 @@ export default async function CheckoutPage({
                 {bankConfigured ? (
                   <Link
                     href={`/checkout/${quoteId}/bank`}
-                    className="border border-line bg-surface/70 px-5 py-5 transition hover:border-accent hover:bg-accent/10"
+                    className="card-elevated rounded-2xl border border-line bg-surface/80 px-5 py-5 hover:border-accent/40"
                   >
                     <p className="font-[family-name:var(--font-syne)] text-lg font-semibold">
                       Bank transfer
                     </p>
                     <p className="mt-1 text-sm text-muted">
-                      Get an invoice with BSB, account, and payment reference
+                      Unpaid invoice with bank details — pay by transfer, then
+                      email a payment screenshot to confirm
                     </p>
                   </Link>
                 ) : (

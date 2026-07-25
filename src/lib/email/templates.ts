@@ -27,13 +27,16 @@ export function bookingConfirmationEmail(data: BookingDocumentData) {
     : brand.siteUrl;
 
   const html = `
-  <div style="font-family:Georgia,serif;color:#10231c;line-height:1.55;max-width:640px">
-    <p style="color:#1a6b4a;letter-spacing:0.12em;text-transform:uppercase;font-size:12px">${esc(brand.issuingAgent)}</p>
+  <div style="font-family:Georgia,serif;color:#0F172A;line-height:1.55;max-width:640px">
+    <p style="margin:0 0 12px">
+      <img src="${esc(brand.logoUrl)}" alt="${esc(brand.shortName)}" width="56" height="56" style="display:block;width:56px;height:56px;object-fit:contain" />
+    </p>
+    <p style="color:#2563EB;letter-spacing:0.12em;text-transform:uppercase;font-size:12px">${esc(brand.issuingAgent)}</p>
     <h1 style="font-size:24px;margin:8px 0 16px">Booking confirmed</h1>
     <p>Dear ${esc(data.passengerName)},</p>
     <p>Thank you for choosing <strong>${esc(brand.issuingAgent)}</strong>.</p>
     <p>We have successfully received your payment, and your booking is now confirmed. Your e-ticket is attached to this email.</p>
-    <h2 style="font-size:14px;letter-spacing:0.12em;text-transform:uppercase;color:#1a6b4a;border-bottom:1px solid #c5d5cc;padding-bottom:6px">Booking Summary</h2>
+    <h2 style="font-size:14px;letter-spacing:0.12em;text-transform:uppercase;color:#2563EB;border-bottom:1px solid #E2E8F0;padding-bottom:6px">Booking Summary</h2>
     <p><strong>Booking Reference:</strong> ${esc(data.bookingRef)}<br/>
     <strong>Route:</strong> ${esc(route)}<br/>
     <strong>Departure:</strong> ${esc(formatDocDateTime(data.flight.departureAt))}<br/>
@@ -82,14 +85,17 @@ export function bankTransferEmail(data: BookingDocumentData) {
     : "the due date on your invoice";
 
   const html = `
-  <div style="font-family:Georgia,serif;color:#10231c;line-height:1.55;max-width:640px">
-    <p style="color:#1a6b4a;letter-spacing:0.12em;text-transform:uppercase;font-size:12px">${esc(brand.issuingAgent)}</p>
+  <div style="font-family:Georgia,serif;color:#0F172A;line-height:1.55;max-width:640px">
+    <p style="margin:0 0 12px">
+      <img src="${esc(brand.logoUrl)}" alt="${esc(brand.shortName)}" width="56" height="56" style="display:block;width:56px;height:56px;object-fit:contain" />
+    </p>
+    <p style="color:#2563EB;letter-spacing:0.12em;text-transform:uppercase;font-size:12px">${esc(brand.issuingAgent)}</p>
     <h1 style="font-size:24px;margin:8px 0 16px">Payment required</h1>
     <p>Dear ${esc(data.passengerName)},</p>
     <p>Thank you for choosing <strong>${esc(brand.issuingAgent)}</strong>.</p>
     <p>Your booking has been created and is currently <strong>Pending Payment</strong>.</p>
     <p>As you selected Bank Transfer, your airfare invoice containing our bank account details and payment instructions is attached / available online.</p>
-    <h2 style="font-size:14px;letter-spacing:0.12em;text-transform:uppercase;color:#1a6b4a;border-bottom:1px solid #c5d5cc;padding-bottom:6px">Booking Summary</h2>
+    <h2 style="font-size:14px;letter-spacing:0.12em;text-transform:uppercase;color:#2563EB;border-bottom:1px solid #E2E8F0;padding-bottom:6px">Booking Summary</h2>
     <p><strong>Booking Reference:</strong> ${esc(data.bookingRef)}<br/>
     <strong>Route:</strong> ${esc(route)}<br/>
     <strong>Departure:</strong> ${esc(formatDocDateTime(data.flight.departureAt))}<br/>
@@ -97,6 +103,8 @@ export function bankTransferEmail(data: BookingDocumentData) {
     <p>Please transfer the total amount using the reference:<br/><strong>${esc(reference)}</strong></p>
     <p><a href="${invoiceUrl}">View Airfare Invoice &amp; bank details</a><br/>
     <a href="${travelUrl}">Preview E-Ticket / Itinerary</a></p>
+    <h2 style="font-size:14px;letter-spacing:0.12em;text-transform:uppercase;color:#2563EB;border-bottom:1px solid #E2E8F0;padding-bottom:6px;margin-top:24px">Transaction instructions</h2>
+    <p>No online payment was taken. After you complete the bank transfer, email a <strong>screenshot of the payment</strong> to <a href="mailto:${esc(brand.paymentProofEmail)}"><strong>${esc(brand.paymentProofEmail)}</strong></a> so we can confirm your booking and send your e-ticket.</p>
     <p>Your seats are held for <strong>48 hours</strong>. Once payment has been received and verified, we will email your booking confirmation and electronic ticket.</p>
     <p>If payment is not confirmed before ${esc(due)}, the hold will be released, seats return to the ticket pool, and you will need to book again.</p>
     <p>Kind regards,<br/>${esc(brand.reservationsTeam)}<br/>${esc(brand.issuingAgent)}</p>
@@ -110,6 +118,8 @@ Route: ${route}
 Departure: ${formatDocDateTime(data.flight.departureAt)}
 Amount Due: ${formatAud(amount)}
 Payment reference: ${reference}
+
+After transferring, email a payment screenshot to ${brand.paymentProofEmail} so we can confirm your booking.
 
 Airfare invoice: ${invoiceUrl}
 Travel document preview: ${travelUrl}

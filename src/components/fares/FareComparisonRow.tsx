@@ -148,12 +148,24 @@ function FareCard({
 
   return (
     <article
-      className={`relative flex w-[min(85vw,18rem)] shrink-0 snap-start flex-col rounded-2xl bg-white p-4 shadow-[0_10px_28px_rgba(16,35,28,0.06)] transition sm:w-[18rem] sm:p-5 ${
-        elevated ? "border-2 border-accent pt-9" : "border border-line"
+      className={`card-elevated relative flex w-[min(85vw,18rem)] shrink-0 snap-start flex-col rounded-2xl bg-white p-4 sm:w-[18rem] sm:p-5 ${
+        elevated
+          ? "card-featured border-2 border-accent/40 pt-9 shadow-[0_12px_32px_rgba(37,99,235,0.14)]"
+          : "border border-line"
       }`}
     >
       {ribbon ? (
-        <div className="absolute inset-x-0 top-0 rounded-t-[14px] bg-accent px-3 py-1.5 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-white">
+        <div
+          className={`absolute inset-x-0 top-0 rounded-t-[14px] px-3 py-1.5 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-white ${
+            product.mostPopular ? "badge-promo justify-center" : "badge-info justify-center"
+          }`}
+          style={{
+            backgroundImage: product.mostPopular
+              ? "linear-gradient(135deg, #EF4444 0%, #991B1B 100%)"
+              : "linear-gradient(135deg, #2563EB 0%, #1E3A8A 100%)",
+            borderRadius: "14px 14px 0 0",
+          }}
+        >
           {ribbon}
         </div>
       ) : null}
@@ -190,8 +202,8 @@ function FareCard({
             label="Select Fares"
             buttonClassName={
               elevated
-                ? "min-h-11 w-full rounded-full bg-accent px-4 py-3 text-sm font-semibold text-white transition hover:bg-accent-deep disabled:cursor-not-allowed disabled:bg-zinc-400"
-                : "min-h-11 w-full rounded-full bg-accent/15 px-4 py-3 text-sm font-semibold text-accent-deep transition hover:bg-accent/25 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-muted"
+                ? "btn-cta min-h-11 w-full px-4 py-3 text-sm disabled:cursor-not-allowed"
+                : "btn-secondary min-h-11 w-full px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
             }
           />
         )}
@@ -252,7 +264,9 @@ function RuleRow({
 }) {
   return (
     <li className="flex items-start gap-2.5">
-      <span className="mt-0.5 shrink-0">{icon}</span>
+      <span className="theme-icon-chip mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full">
+        {icon}
+      </span>
       <span className="min-w-0 flex-1">
         <span className="block text-xs text-muted">{label}</span>
         <span className="break-words font-medium text-foreground">{value}</span>
