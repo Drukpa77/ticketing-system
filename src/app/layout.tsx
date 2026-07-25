@@ -19,9 +19,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Travel Agent — Live flight fares",
+  title: "Drukair – Royal Bhutan Airlines | Flight bookings",
   description:
-    "Search one-way and round-trip flights with live dynamic pricing in AUD",
+    "Book Drukair flights with live fares, e-tickets, and tax invoices in AUD",
 };
 
 export default function RootLayout({

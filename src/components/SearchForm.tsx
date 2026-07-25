@@ -12,19 +12,35 @@ function defaultDate(offsetDays: number): string {
 const fieldClass =
   "w-full appearance-none border-0 border-b border-line bg-transparent px-0 py-3 text-base text-foreground outline-none transition focus:border-accent";
 
+export type SearchFormValues = {
+  origin?: string;
+  destination?: string;
+  date?: string;
+  returnDate?: string;
+  tripType?: "one_way" | "round_trip";
+};
+
 export function SearchForm({
   error,
   variant = "default",
   airports,
+  initialValues,
 }: {
   error?: string;
-  variant?: "default" | "hero";
+  variant?: "default" | "hero" | "panel";
   airports: AirportOption[];
+  initialValues?: SearchFormValues;
 }) {
-  const [tripType, setTripType] = useState<"one_way" | "round_trip">("one_way");
+  const [tripType, setTripType] = useState<"one_way" | "round_trip">(
+    initialValues?.tripType ?? "one_way",
+  );
   const defaultOrigin =
-    airports.find((a) => a.code === "SYD")?.code ?? airports[0]?.code ?? "";
+    initialValues?.origin ??
+    airports.find((a) => a.code === "SYD")?.code ??
+    airports[0]?.code ??
+    "";
   const defaultDestination =
+    initialValues?.destination ??
     airports.find((a) => a.code === "MEL" && a.code !== defaultOrigin)?.code ??
     airports.find((a) => a.code !== defaultOrigin)?.code ??
     "";
@@ -32,6 +48,7 @@ export function SearchForm({
   const [origin, setOrigin] = useState(defaultOrigin);
   const [destination, setDestination] = useState(defaultDestination);
   const isHero = variant === "hero";
+  const isPanel = variant === "panel";
 
   const destinationOptions = useMemo(
     () => airports.filter((a) => a.code !== origin),
@@ -41,12 +58,14 @@ export function SearchForm({
   return (
     <form
       id="search"
-      action="/flights"
+      action="/"
       method="get"
       className={
         isHero
           ? "space-y-6 bg-surface/95 p-5 shadow-[0_24px_60px_rgba(16,35,28,0.18)] backdrop-blur-sm sm:p-7"
-          : "space-y-4 border border-line bg-surface p-6"
+          : isPanel
+            ? "space-y-5"
+            : "space-y-4 border border-line bg-surface p-6"
       }
     >
       <div className="flex flex-wrap gap-2">
@@ -60,7 +79,7 @@ export function SearchForm({
           return (
             <label
               key={value}
-              className={`cursor-pointer px-4 py-2 text-sm font-medium transition ${
+              className={`cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition ${
                 active
                   ? "bg-accent-deep text-white"
                   : "bg-white text-muted hover:text-foreground"
@@ -103,7 +122,8 @@ export function SearchForm({
               const next = e.target.value;
               setOrigin(next);
               if (next === destination) {
-                const fallback = airports.find((a) => a.code !== next)?.code ?? "";
+                const fallback =
+                  airports.find((a) => a.code !== next)?.code ?? "";
                 setDestination(fallback);
               }
             }}
@@ -157,7 +177,7 @@ export function SearchForm({
             id="date"
             name="date"
             type="date"
-            defaultValue={defaultDate(3)}
+            defaultValue={initialValues?.date ?? defaultDate(3)}
             required
             className={fieldClass}
           />
@@ -174,7 +194,7 @@ export function SearchForm({
               id="returnDate"
               name="returnDate"
               type="date"
-              defaultValue={defaultDate(7)}
+              defaultValue={initialValues?.returnDate ?? defaultDate(7)}
               required
               className={fieldClass}
             />
@@ -184,7 +204,7 @@ export function SearchForm({
           <button
             type="submit"
             disabled={airports.length < 2}
-            className="w-full bg-accent px-4 py-3.5 text-sm font-semibold tracking-wide text-white transition hover:bg-accent-deep disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-full bg-accent px-4 py-3.5 text-sm font-semibold tracking-wide text-white transition hover:bg-accent-deep disabled:cursor-not-allowed disabled:opacity-50"
           >
             Search flights
           </button>

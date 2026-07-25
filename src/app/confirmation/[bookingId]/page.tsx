@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getBrand } from "@/lib/branding";
 import { prisma } from "@/lib/db";
 import { airportLabel, formatFlightTime } from "@/lib/format";
 import { formatAud } from "@/lib/pricing";
@@ -10,6 +11,7 @@ export default async function ConfirmationPage({
   params: Promise<{ bookingId: string }>;
 }) {
   const { bookingId } = await params;
+  const brand = getBrand();
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     include: { flight: true, returnFlight: true, invoice: true, quote: true },
@@ -20,12 +22,15 @@ export default async function ConfirmationPage({
   const invoice = booking.invoice;
   const unpaid = invoice?.status === "unpaid";
   const paid = invoice?.status === "paid" || booking.status === "confirmed";
-
   const fareOnlyCents =
-    booking.quote.quotedPriceCents * booking.seatsBooked;
+    invoice?.fareCents ||
+    (booking.quote
+      ? booking.quote.quotedPriceCents * booking.seatsBooked
+      : Math.max(0, booking.amountPaidCents - booking.serviceFeeCents));
   const cardServiceFeeCents =
     booking.paymentMethod === "card"
-      ? Math.max(0, booking.amountPaidCents - fareOnlyCents)
+      ? booking.serviceFeeCents ||
+        Math.max(0, booking.amountPaidCents - fareOnlyCents)
       : 0;
 
   return (
@@ -44,21 +49,32 @@ export default async function ConfirmationPage({
       <div className="relative mx-auto w-full max-w-3xl px-4 py-12 sm:px-6">
         <div className="border border-line bg-surface/90 p-6 backdrop-blur-sm sm:p-8">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
-            {unpaid ? "Booking reserved · awaiting payment" : "Booking confirmed"}
+            {brand.airlineName}
+          </p>
+          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+            {unpaid
+              ? "Booking reserved · awaiting payment"
+              : "Booking confirmed"}
           </p>
           <h1 className="mt-3 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
             {booking.bookingRef}
           </h1>
+          <p className="mt-2 text-sm text-muted">
+            Ticket {booking.ticketNumber}
+          </p>
           <p className="mt-3 text-muted">
             {booking.passengerName} · {booking.email}
           </p>
           <p className="mt-1 text-sm text-muted">
             {isRound ? "Round trip" : "One way"}
             {booking.paymentMethod === "card"
-              ? " · Paid by card"
+              ? " · Paid by credit card"
               : booking.paymentMethod === "bank_transfer"
                 ? " · Bank transfer"
-                : ""}
+                : booking.paymentMethod === "cash"
+                  ? " · Cash"
+                  : ""}
+            {booking.source === "walk_in" ? " · Walk-in" : ""}
           </p>
 
           <div className="mt-8 space-y-3 border-t border-line pt-6 text-sm">
@@ -93,7 +109,7 @@ export default async function ConfirmationPage({
                   {formatAud(fareOnlyCents)}
                 </p>
                 <p>
-                  <span className="text-muted">Service fee (2.2%)</span>{" "}
+                  <span className="text-muted">Credit card fee (2.2%)</span>{" "}
                   {formatAud(cardServiceFeeCents)}
                 </p>
                 <p>
@@ -106,6 +122,25 @@ export default async function ConfirmationPage({
                 <span className="text-muted">Amount (AUD)</span>{" "}
                 {formatAud(booking.amountPaidCents)}
               </p>
+            )}
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href={`/documents/ticket/${booking.bookingRef}`}
+              className="inline-flex bg-accent-deep px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-accent"
+              target="_blank"
+            >
+              View E-Ticket
+            </Link>
+            {invoice && (
+              <Link
+                href={`/documents/invoice/${invoice.invoiceNumber}`}
+                className="inline-flex border border-line px-4 py-2.5 text-sm font-semibold text-foreground transition hover:border-accent"
+                target="_blank"
+              >
+                View Tax Invoice
+              </Link>
             )}
           </div>
 
@@ -158,6 +193,14 @@ export default async function ConfirmationPage({
                       {invoice.bankReference}
                     </dd>
                   </div>
+                  {booking.holdExpiresAt ? (
+                    <p className="mt-3 text-xs leading-relaxed text-muted">
+                      Seats held until{" "}
+                      {booking.holdExpiresAt.toLocaleString("en-AU")}. If
+                      payment is not confirmed by then, the hold ends and seats
+                      return to the ticket pool.
+                    </p>
+                  ) : null}
                 </dl>
               )}
 
@@ -169,6 +212,12 @@ export default async function ConfirmationPage({
                     : ""}
                 </p>
               )}
+
+              <p className="mt-4 text-sm text-muted">
+                {unpaid
+                  ? "A bank-transfer email with this tax invoice is sent when email is configured. Admin can resend from Invoices."
+                  : "A confirmation email with your e-ticket and tax invoice/receipt is sent when email is configured."}
+              </p>
             </div>
           )}
 

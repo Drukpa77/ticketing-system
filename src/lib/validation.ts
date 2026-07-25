@@ -44,6 +44,9 @@ export const bookingSchema = z.object({
   quoteId: z.string().min(1),
   passengerName: z.string().trim().min(2, "Name is required").max(120),
   email: z.string().trim().email("Valid email required"),
+  passengerPhone: z.string().trim().max(40).optional().or(z.literal("")),
+  passportNumber: z.string().trim().max(40).optional().or(z.literal("")),
+  nationality: z.string().trim().max(60).optional().or(z.literal("")),
   seatsBooked: z.coerce.number().int().min(1).max(9).default(1),
 });
 

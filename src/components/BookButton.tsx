@@ -6,19 +6,25 @@ export function BookButton({
   returnFlightId,
   disabled,
   label = "Book at this price",
+  buttonClassName,
 }: {
   flightId: string;
   returnFlightId?: string;
   disabled?: boolean;
   label?: string;
+  buttonClassName?: string;
 }) {
   return (
-    <form action={startCheckoutFormAction} className="space-y-2">
+    <form action={startCheckoutFormAction} className="w-full">
       <input type="hidden" name="flightId" value={flightId} />
       {returnFlightId ? (
         <input type="hidden" name="returnFlightId" value={returnFlightId} />
       ) : null}
-      <BookSubmitButton disabled={disabled} label={label} />
+      <BookSubmitButton
+        disabled={disabled}
+        label={label}
+        className={buttonClassName}
+      />
     </form>
   );
 }

@@ -1,9 +1,11 @@
+import {
+  bankHoldExpiresAt,
+  makeBookingRef,
+  makeInvoiceNumber,
+  makeTicketNumber,
+} from "@/lib/branding";
 import { prisma } from "@/lib/db";
 import { getCurrentFareRelease } from "@/lib/fares/current";
-import {
-  makeBankReference,
-  makeInvoiceNumber,
-} from "@/lib/payments/bank";
 import { getPricingConfig, priceFlight } from "@/lib/pricing/service";
 
 export async function createPriceQuote(input: {
@@ -157,11 +159,14 @@ export async function confirmBooking(input: {
   sessionId: string;
   passengerName: string;
   email: string;
+  passengerPhone?: string;
+  passportNumber?: string;
+  nationality?: string;
   seatsBooked: number;
   paymentMethod: "card" | "bank_transfer";
   invoiceStatus: "paid" | "unpaid";
   squarePaymentId?: string;
-  /** Override charged total (e.g. fare + card service fee). */
+  /** Override charged total (e.g. fare + credit card fee). */
   amountCentsOverride?: number;
   serviceFeeCents?: number;
   bankDetails?: {
@@ -246,19 +251,22 @@ export async function confirmBooking(input: {
         });
       }
 
-      const bookingRef = `TA${Date.now().toString(36).toUpperCase()}${Math.floor(
-        Math.random() * 1000,
-      )
-        .toString()
-        .padStart(3, "0")}`;
-
+      const bookingRef = makeBookingRef();
+      const ticketNumber = makeTicketNumber();
       const fareCents = quote.quotedPriceCents * input.seatsBooked;
+      const serviceFeeCents = input.serviceFeeCents ?? 0;
       const amountCents = input.amountCentsOverride ?? fareCents;
       const paid = input.invoiceStatus === "paid";
-      const serviceFeeNote =
-        input.serviceFeeCents && input.serviceFeeCents > 0
-          ? `Includes service fee ${input.serviceFeeCents} cents (2.2% card).`
-          : "";
+      const holdExpiresAt =
+        !paid && input.paymentMethod === "bank_transfer"
+          ? bankHoldExpiresAt(new Date(), 48)
+          : null;
+      const invoiceNotes =
+        serviceFeeCents > 0
+          ? `Includes credit card fee ${serviceFeeCents} cents (2.2%).`
+          : holdExpiresAt
+            ? "Awaiting bank transfer · seats held for 48 hours."
+            : "";
 
       const booking = await tx.booking.create({
         data: {
@@ -271,11 +279,18 @@ export async function confirmBooking(input: {
           tripType: quote.tripType,
           passengerName: input.passengerName,
           email: input.email,
+          passengerPhone: input.passengerPhone ?? "",
+          passportNumber: input.passportNumber ?? "",
+          nationality: input.nationality ?? "",
           seatsBooked: input.seatsBooked,
           amountPaidCents: amountCents,
+          serviceFeeCents,
           paymentMethod: input.paymentMethod,
+          source: "online",
           status: paid ? "confirmed" : "pending_payment",
           bookingRef,
+          ticketNumber,
+          holdExpiresAt,
         },
       });
 
@@ -286,18 +301,20 @@ export async function confirmBooking(input: {
           paymentMethod: input.paymentMethod,
           status: input.invoiceStatus,
           amountCents,
+          fareCents,
+          serviceFeeCents,
           currency: "AUD",
           squarePaymentId: input.squarePaymentId,
           bankAccountName: input.bankDetails?.accountName,
           bankBsb: input.bankDetails?.bsb,
           bankAccountNumber: input.bankDetails?.accountNumber,
           bankReference:
-            input.paymentMethod === "bank_transfer"
-              ? makeBankReference(bookingRef)
-              : null,
+            input.paymentMethod === "bank_transfer" ? bookingRef : null,
           customerName: input.passengerName,
           customerEmail: input.email,
-          notes: serviceFeeNote,
+          customerPhone: input.passengerPhone ?? "",
+          notes: invoiceNotes,
+          dueAt: holdExpiresAt,
           paidAt: paid ? new Date() : null,
           markedPaidByAdmin: false,
         },

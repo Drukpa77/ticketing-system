@@ -33,11 +33,18 @@ enum BookingStatus {
   pending_payment
   confirmed
   cancelled
+  hold_expired
 }
 
 enum PaymentMethod {
   card
   bank_transfer
+  cash
+}
+
+enum BookingSource {
+  online
+  walk_in
 }
 
 enum InvoiceStatus {
@@ -141,8 +148,8 @@ model PriceQuote {
 
 model Booking {
   id                  String         @id @default(cuid())
-  quoteId             String         @unique
-  quote               PriceQuote     @relation(fields: [quoteId], references: [id])
+  quoteId             String?        @unique
+  quote               PriceQuote?    @relation(fields: [quoteId], references: [id])
   flightId            String
   flight              Flight         @relation("OutboundBookings", fields: [flightId], references: [id])
   fareReleaseId       String?
@@ -154,17 +161,27 @@ model Booking {
   tripType            TripType       @default(one_way)
   passengerName       String
   email               String
+  passengerPhone      String         @default("")
+  passportNumber      String         @default("")
+  nationality         String         @default("")
   seatsBooked         Int            @default(1)
   amountPaidCents     Int
+  serviceFeeCents     Int            @default(0)
   fareReleaseName     String         @default("")
   paymentMethod       PaymentMethod?
+  source              BookingSource  @default(online)
   status              BookingStatus  @default(pending_payment)
   bookingRef          String         @unique
+  ticketNumber        String         @unique
+  /// Bank-transfer seat hold deadline (48h). Null once confirmed/cancelled/expired.
+  holdExpiresAt       DateTime?
   createdAt           DateTime       @default(now())
   invoice             Invoice?
 
   @@index([flightId])
   @@index([email])
+  @@index([status, holdExpiresAt])
+  @@index([createdAt])
 }
 
 model Invoice {
@@ -175,6 +192,8 @@ model Invoice {
   paymentMethod     PaymentMethod
   status            InvoiceStatus  @default(unpaid)
   amountCents       Int
+  fareCents         Int            @default(0)
+  serviceFeeCents   Int            @default(0)
   currency          String         @default("AUD")
   squarePaymentId   String?
   bankAccountName   String?
@@ -183,7 +202,9 @@ model Invoice {
   bankReference     String?
   customerName     String
   customerEmail     String
+  customerPhone     String         @default("")
   notes             String         @default("")
+  dueAt             DateTime?
   sentAt            DateTime?
   paidAt            DateTime?
   markedPaidByAdmin Boolean        @default(false)

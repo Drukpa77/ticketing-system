@@ -15,6 +15,11 @@ import {
   markInvoiceSentAction,
   markInvoiceUnpaidAction,
 } from "@/lib/actions/invoices";
+import {
+  createWalkInBookingAction,
+  markBookingPaidAction,
+  markBookingUnpaidAction,
+} from "@/lib/actions/walkIn";
 import type { GroupedPriceAnalytics } from "@/lib/analytics/pricingAnalytics";
 import { PricingAnalyticsSection } from "@/components/PricingAnalyticsSection";
 import { toDateTimeLocalValue } from "@/lib/datetime";
@@ -54,12 +59,19 @@ type FlightRow = {
 type BookingRow = {
   id: string;
   bookingRef: string;
+  ticketNumber: string;
   tripType: TripType;
   passengerName: string;
+  email: string;
   amountPaidCents: number;
   fareReleaseName: string;
-  status: "pending_payment" | "confirmed" | "cancelled";
-  paymentMethod: "card" | "bank_transfer" | null;
+  status: "pending_payment" | "confirmed" | "cancelled" | "hold_expired";
+  paymentMethod: "card" | "bank_transfer" | "cash" | null;
+  source: "online" | "walk_in";
+  holdExpiresAt: string | null;
+  createdAt: string;
+  invoiceId: string | null;
+  invoiceStatus: "unpaid" | "paid" | "cancelled" | "failed" | null;
   flight: {
     flightNumber: string;
     origin: string;
@@ -76,7 +88,7 @@ type InvoiceRow = {
   id: string;
   invoiceNumber: string;
   status: "unpaid" | "paid" | "cancelled" | "failed";
-  paymentMethod: "card" | "bank_transfer";
+  paymentMethod: "card" | "bank_transfer" | "cash";
   amountCents: number;
   customerName: string;
   customerEmail: string;
@@ -658,48 +670,189 @@ export function AdminDashboard({
       )}
 
       {tab === "bookings" && (
-        <section className="space-y-6">
+        <section className="space-y-8">
           <div>
             <h2 className="font-[family-name:var(--font-syne)] text-2xl font-semibold tracking-tight">
-              Recent bookings
+              Bookings log
             </h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted">
+              All bookings show credit card vs bank transfer. For bank transfer,
+              confirm paid to send the confirmation email with e-ticket. Unpaid
+              bank holds expire after 48 hours and seats return to the pool.
+            </p>
           </div>
+
+          <div className="border border-line bg-surface/80 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
+              Walk-in
+            </p>
+            <h3 className="mt-2 font-[family-name:var(--font-syne)] text-xl font-semibold">
+              Book for a client
+            </h3>
+            <p className="mt-1 text-sm text-muted">
+              Counter / phone bookings. Cash or card = confirmed + confirmation
+              email. Bank transfer = 48h hold + invoice email.
+            </p>
+            <form
+              action={createWalkInBookingAction}
+              className="mt-6 grid gap-4 sm:grid-cols-2"
+            >
+              <label className="space-y-1 text-sm sm:col-span-2">
+                <span className="text-xs uppercase tracking-[0.12em] text-muted">
+                  Flight
+                </span>
+                <select name="flightId" required className={fieldClass}>
+                  <option value="">Select outbound flight</option>
+                  {flights
+                    .filter((f) => f.active && f.remainingSeats > 0)
+                    .map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.airline} {f.flightNumber} · {f.origin}→{f.destination}{" "}
+                        · {new Date(f.departureAt).toLocaleString("en-AU")} ·{" "}
+                        {f.remainingSeats} seats
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label className="space-y-1 text-sm sm:col-span-2">
+                <span className="text-xs uppercase tracking-[0.12em] text-muted">
+                  Return flight (optional)
+                </span>
+                <select name="returnFlightId" className={fieldClass}>
+                  <option value="">One way only</option>
+                  {flights
+                    .filter((f) => f.active && f.remainingSeats > 0)
+                    .map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.airline} {f.flightNumber} · {f.origin}→{f.destination}{" "}
+                        · {new Date(f.departureAt).toLocaleString("en-AU")}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="text-xs uppercase tracking-[0.12em] text-muted">
+                  Passenger name
+                </span>
+                <input name="passengerName" required className={fieldClass} />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="text-xs uppercase tracking-[0.12em] text-muted">
+                  Email
+                </span>
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  className={fieldClass}
+                />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="text-xs uppercase tracking-[0.12em] text-muted">
+                  Phone
+                </span>
+                <input name="passengerPhone" className={fieldClass} />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="text-xs uppercase tracking-[0.12em] text-muted">
+                  Passport
+                </span>
+                <input name="passportNumber" className={fieldClass} />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="text-xs uppercase tracking-[0.12em] text-muted">
+                  Nationality
+                </span>
+                <input name="nationality" className={fieldClass} />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="text-xs uppercase tracking-[0.12em] text-muted">
+                  Seats
+                </span>
+                <input
+                  name="seatsBooked"
+                  type="number"
+                  min={1}
+                  max={9}
+                  defaultValue={1}
+                  required
+                  className={fieldClass}
+                />
+              </label>
+              <label className="space-y-1 text-sm sm:col-span-2">
+                <span className="text-xs uppercase tracking-[0.12em] text-muted">
+                  Payment method
+                </span>
+                <select name="paymentMethod" required className={fieldClass}>
+                  <option value="cash">Cash (mark paid now)</option>
+                  <option value="card">Credit card at counter (mark paid now)</option>
+                  <option value="bank_transfer">
+                    Bank transfer (48h hold + invoice email)
+                  </option>
+                </select>
+              </label>
+              <div className="sm:col-span-2">
+                <button
+                  type="submit"
+                  className="bg-accent-deep px-5 py-3 text-sm font-semibold text-white transition hover:bg-accent"
+                >
+                  Create walk-in booking
+                </button>
+              </div>
+            </form>
+          </div>
+
           {bookings.length === 0 ? (
             <div className="border border-dashed border-line bg-surface/70 px-6 py-14 text-center text-sm text-muted">
               No bookings yet.
             </div>
           ) : (
             <div className="overflow-x-auto border-y border-line bg-surface/60">
-              <table className="w-full min-w-[820px] text-left text-sm">
+              <table className="w-full min-w-[980px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-line text-xs uppercase tracking-[0.12em] text-muted">
                     <th className="px-4 py-3 font-medium">Ref</th>
                     <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium">Pay</th>
-                    <th className="px-4 py-3 font-medium">Fare</th>
+                    <th className="px-4 py-3 font-medium">Payment</th>
+                    <th className="px-4 py-3 font-medium">Source</th>
                     <th className="px-4 py-3 font-medium">Customer</th>
                     <th className="px-4 py-3 font-medium">Flights</th>
                     <th className="px-4 py-3 font-medium">Amount</th>
+                    <th className="px-4 py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {bookings.map((b) => (
                     <tr key={b.id} className="border-b border-line/70">
-                      <td className="px-4 py-4 font-medium">{b.bookingRef}</td>
+                      <td className="px-4 py-4">
+                        <p className="font-medium">{b.bookingRef}</p>
+                        <p className="text-xs text-muted">{b.ticketNumber}</p>
+                      </td>
                       <td className="px-4 py-4 text-muted">
                         {b.status.replaceAll("_", " ")}
+                        {b.holdExpiresAt && b.status === "pending_payment" ? (
+                          <p className="mt-1 text-xs text-amber-800">
+                            Hold until{" "}
+                            {new Date(b.holdExpiresAt).toLocaleString("en-AU")}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-4 py-4 text-muted">
                         {b.paymentMethod === "card"
-                          ? "Card"
+                          ? "Credit card"
                           : b.paymentMethod === "bank_transfer"
-                            ? "Bank"
-                            : "—"}
+                            ? "Bank transfer"
+                            : b.paymentMethod === "cash"
+                              ? "Cash"
+                              : "—"}
                       </td>
                       <td className="px-4 py-4 text-muted">
-                        {b.fareReleaseName || "—"}
+                        {b.source === "walk_in" ? "Walk-in" : "Online"}
                       </td>
-                      <td className="px-4 py-4">{b.passengerName}</td>
+                      <td className="px-4 py-4">
+                        <p>{b.passengerName}</p>
+                        <p className="text-xs text-muted">{b.email}</p>
+                      </td>
                       <td className="px-4 py-4 text-muted">
                         {b.flight.flightNumber} {b.flight.origin}→
                         {b.flight.destination}
@@ -709,6 +862,41 @@ export function AdminDashboard({
                       </td>
                       <td className="px-4 py-4 font-medium">
                         {formatAud(b.amountPaidCents)}
+                      </td>
+                      <td className="px-4 py-4">
+                        {b.paymentMethod === "bank_transfer" &&
+                        b.status === "pending_payment" ? (
+                          <form action={markBookingPaidAction}>
+                            <input type="hidden" name="id" value={b.id} />
+                            <button
+                              type="submit"
+                              className="bg-accent-deep px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-accent"
+                            >
+                              Mark paid
+                            </button>
+                          </form>
+                        ) : null}
+                        {b.paymentMethod === "bank_transfer" &&
+                        b.status === "confirmed" ? (
+                          <form action={markBookingUnpaidAction}>
+                            <input type="hidden" name="id" value={b.id} />
+                            <button
+                              type="submit"
+                              className="border border-line px-3 py-1.5 text-xs font-medium text-muted transition hover:border-accent"
+                            >
+                              Mark unpaid
+                            </button>
+                          </form>
+                        ) : null}
+                        {b.paymentMethod === "card" ||
+                        b.paymentMethod === "cash" ? (
+                          <span className="text-xs text-accent">Auto paid</span>
+                        ) : null}
+                        {b.status === "hold_expired" ? (
+                          <span className="text-xs text-red-700">
+                            Hold expired
+                          </span>
+                        ) : null}
                       </td>
                     </tr>
                   ))}
@@ -727,8 +915,9 @@ export function AdminDashboard({
             </h2>
             <p className="mt-1 max-w-2xl text-sm text-muted">
               Card payments are marked paid automatically via Square. Bank
-              transfers stay unpaid until you confirm funds. Mark sent after you
-              review and email the customer.
+              transfers stay unpaid until you confirm funds. Mark paid sends the
+              confirmation + e-ticket email. Send email delivers the matching
+              Drukair template (confirmation or bank-transfer invoice).
             </p>
           </div>
 
@@ -765,8 +954,10 @@ export function AdminDashboard({
                       <p className="text-sm text-muted">
                         Booking {invoice.bookingRef} ·{" "}
                         {invoice.paymentMethod === "card"
-                          ? "Card (Square)"
-                          : "Bank transfer"}
+                          ? "Credit card (Square)"
+                          : invoice.paymentMethod === "cash"
+                            ? "Cash"
+                            : "Bank transfer"}
                         {invoice.bankReference
                           ? ` · Ref ${invoice.bankReference}`
                           : ""}
@@ -813,7 +1004,7 @@ export function AdminDashboard({
                           type="submit"
                           className="border border-line px-4 py-2 text-sm font-medium text-muted transition hover:border-accent hover:text-foreground"
                         >
-                          {invoice.sentAt ? "Mark sent again" : "Mark sent"}
+                          {invoice.sentAt ? "Resend email" : "Send email"}
                         </button>
                       </form>
                     </div>

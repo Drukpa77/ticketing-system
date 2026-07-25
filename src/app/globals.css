@@ -90,10 +90,36 @@ textarea {
   animation: home-line 2.4s ease-out 0.4s both;
 }
 
+@keyframes results-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.results-rise {
+  animation: results-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.results-card {
+  animation: results-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.results-banner {
+  animation: results-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .home-rise,
   .home-drift,
-  .home-route-line {
+  .home-route-line,
+  .results-rise,
+  .results-card,
+  .results-banner {
     animation: none;
   }
 }

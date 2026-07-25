@@ -20,16 +20,9 @@ export function isBankTransferConfigured() {
   return getBankTransferDetails() !== null;
 }
 
-export function makeInvoiceNumber() {
-  const stamp = new Date()
-    .toISOString()
-    .slice(0, 10)
-    .replaceAll("-", "");
-  const rand = Math.floor(Math.random() * 9000 + 1000);
-  return `INV-${stamp}-${rand}`;
-}
+export { makeInvoiceNumber } from "@/lib/branding";
 
-/** Short reference customers put on their bank transfer. */
+/** Prefer full booking reference (template style). */
 export function makeBankReference(bookingRef: string) {
-  return bookingRef.replace(/[^A-Z0-9]/gi, "").slice(0, 12).toUpperCase();
+  return bookingRef;
 }

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { getFlightPriceAnalytics } from "@/lib/analytics/pricingAnalytics";
+import { expireStaleBankHolds } from "@/lib/booking/expireHolds";
 import { prisma } from "@/lib/db";
 import { adminLoginSchema } from "@/lib/validation";
 
@@ -88,7 +89,7 @@ export default async function AdminPage({
         />
         <div className="relative w-full max-w-md">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
-            Travel Agent
+            {process.env.NEXT_PUBLIC_BRAND_SHORT_NAME || "Drukair"}
           </p>
           <h1 className="mt-3 font-[family-name:var(--font-syne)] text-4xl font-semibold tracking-tight text-foreground">
             Operations
@@ -129,6 +130,13 @@ export default async function AdminPage({
     );
   }
 
+  // Best-effort: expire stale bank holds when ops open the dashboard.
+  try {
+    await expireStaleBankHolds();
+  } catch (err) {
+    console.error("expire stale holds on admin load failed", err);
+  }
+
   const [flights, bookings, invoices, analytics] = await Promise.all([
     prisma.flight.findMany({
       orderBy: [{ active: "desc" }, { departureAt: "asc" }],
@@ -136,8 +144,12 @@ export default async function AdminPage({
     }),
     prisma.booking.findMany({
       orderBy: { createdAt: "desc" },
-      take: 30,
-      include: { flight: true, returnFlight: true },
+      take: 50,
+      include: {
+        flight: true,
+        returnFlight: true,
+        invoice: { select: { id: true, status: true } },
+      },
     }),
     prisma.invoice.findMany({
       orderBy: { createdAt: "desc" },
@@ -161,12 +173,18 @@ export default async function AdminPage({
               : params.saved === "deleted"
                 ? "Flight deleted permanently."
                 : params.saved === "invoice-paid"
-                  ? "Invoice marked paid."
+                  ? "Invoice marked paid. Confirmation email with e-ticket sent."
                   : params.saved === "invoice-unpaid"
                     ? "Invoice marked unpaid."
                     : params.saved === "invoice-sent"
-                      ? "Invoice marked as sent (email delivery comes next)."
-                      : null;
+                      ? "Email sent using the Drukair booking template (or marked sent if email is not configured)."
+                      : params.saved === "booking-paid"
+                        ? "Bank transfer marked paid. Confirmation email with e-ticket sent."
+                        : params.saved === "booking-unpaid"
+                          ? "Booking marked unpaid — 48h hold restored."
+                          : params.saved === "walk-in"
+                            ? "Walk-in booking created."
+                            : null;
 
   const initialTab =
     parseTab(params.tab) ??
@@ -179,7 +197,11 @@ export default async function AdminPage({
       ? "flights"
       : params.saved?.startsWith("invoice")
         ? "invoices"
-        : "analytics");
+        : params.saved === "booking-paid" ||
+            params.saved === "booking-unpaid" ||
+            params.saved === "walk-in"
+          ? "bookings"
+          : "analytics");
 
   return (
     <main className="relative min-h-[calc(100svh-4rem)] overflow-hidden">
@@ -199,14 +221,15 @@ export default async function AdminPage({
         <div className="flex flex-col gap-6 border-b border-line pb-8 sm:flex-row sm:items-end sm:justify-between">
           <div className="max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
-              Travel Agent · Operations
+              {process.env.NEXT_PUBLIC_BRAND_SHORT_NAME || "Drukair"} ·
+              Operations
             </p>
             <h1 className="mt-3 font-[family-name:var(--font-syne)] text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
               Dashboard
             </h1>
             <p className="mt-3 text-sm leading-relaxed text-muted sm:text-base">
-              Publish flights, set ticket prices, and manage invoices from card
-              and bank-transfer payments.
+              Publish flights, set ticket prices, confirm bank transfers, and
+              create walk-in bookings for counter customers.
             </p>
           </div>
           <form action={logout}>
@@ -251,12 +274,19 @@ export default async function AdminPage({
             bookings={bookings.map((b) => ({
               id: b.id,
               bookingRef: b.bookingRef,
+              ticketNumber: b.ticketNumber,
               tripType: b.tripType,
               passengerName: b.passengerName,
+              email: b.email,
               amountPaidCents: b.amountPaidCents,
               fareReleaseName: b.fareReleaseName,
               status: b.status,
               paymentMethod: b.paymentMethod,
+              source: b.source,
+              holdExpiresAt: b.holdExpiresAt?.toISOString() ?? null,
+              createdAt: b.createdAt.toISOString(),
+              invoiceId: b.invoice?.id ?? null,
+              invoiceStatus: b.invoice?.status ?? null,
               flight: {
                 flightNumber: b.flight.flightNumber,
                 origin: b.flight.origin,

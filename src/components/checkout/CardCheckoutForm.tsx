@@ -29,6 +29,9 @@ export function CardCheckoutForm({
 }: CardCheckoutFormProps) {
   const [passengerName, setPassengerName] = useState("");
   const [email, setEmail] = useState("");
+  const [passengerPhone, setPassengerPhone] = useState("");
+  const [passportNumber, setPassportNumber] = useState("");
+  const [nationality, setNationality] = useState("");
   const [seatsBooked, setSeatsBooked] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -74,7 +77,7 @@ export function CardCheckoutForm({
         </label>
         <label className="space-y-1 text-sm">
           <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-            Email for invoice
+            Email for invoice & ticket
           </span>
           <input
             type="email"
@@ -83,6 +86,40 @@ export function CardCheckoutForm({
             className={fieldClass}
             placeholder="you@email.com"
             autoComplete="email"
+          />
+        </label>
+        <label className="space-y-1 text-sm">
+          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
+            Phone
+          </span>
+          <input
+            value={passengerPhone}
+            onChange={(e) => setPassengerPhone(e.target.value)}
+            className={fieldClass}
+            placeholder="+61 412 345 678"
+            autoComplete="tel"
+          />
+        </label>
+        <label className="space-y-1 text-sm">
+          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
+            Passport number
+          </span>
+          <input
+            value={passportNumber}
+            onChange={(e) => setPassportNumber(e.target.value)}
+            className={fieldClass}
+            placeholder="N1234567"
+          />
+        </label>
+        <label className="space-y-1 text-sm">
+          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
+            Nationality
+          </span>
+          <input
+            value={nationality}
+            onChange={(e) => setNationality(e.target.value)}
+            className={fieldClass}
+            placeholder="Australian"
           />
         </label>
         <label className="space-y-1 text-sm">
@@ -115,7 +152,7 @@ export function CardCheckoutForm({
           </div>
           <div className="flex justify-between gap-4">
             <dt className="text-muted">
-              Service fee{" "}
+              Credit card fee{" "}
               <span className="text-foreground/70">({fee.rateLabel})</span>
             </dt>
             <dd className="font-medium">{formatAud(fee.serviceFeeCents)}</dd>
@@ -128,7 +165,7 @@ export function CardCheckoutForm({
           </div>
         </dl>
         <p className="mt-3 text-xs text-muted">
-          The service fee covers card processing costs for Visa, Mastercard, and
+          The credit card fee covers card processing for Visa, Mastercard, and
           digital wallets.
         </p>
       </div>
@@ -154,6 +191,9 @@ export function CardCheckoutForm({
                   quoteId,
                   passengerName: passengerName.trim(),
                   email: email.trim(),
+                  passengerPhone: passengerPhone.trim(),
+                  passportNumber: passportNumber.trim(),
+                  nationality: nationality.trim(),
                   seatsBooked,
                   sourceId: token,
                 });
@@ -173,7 +213,7 @@ export function CardCheckoutForm({
       {error && <p className="text-sm text-red-700">{error}</p>}
 
       <p className="text-sm text-muted">
-        Prefer invoice with no service fee?{" "}
+        Prefer invoice with no credit card fee?{" "}
         <Link
           href={`/checkout/${quoteId}/bank`}
           className="font-medium text-accent underline"

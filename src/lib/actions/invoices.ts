@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import {
+  sendBookingConfirmationBundle,
+  sendInvoiceEmailForBooking,
+} from "@/lib/email/bookingMail";
 
 const ADMIN_COOKIE = "ts_admin";
 
@@ -21,8 +25,8 @@ export async function markInvoicePaidAction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) redirect("/admin?tab=invoices&error=Missing+invoice");
 
-  await prisma.$transaction(async (tx) => {
-    const invoice = await tx.invoice.update({
+  const invoice = await prisma.$transaction(async (tx) => {
+    const updated = await tx.invoice.update({
       where: { id },
       data: {
         status: "paid",
@@ -31,10 +35,17 @@ export async function markInvoicePaidAction(formData: FormData) {
       },
     });
     await tx.booking.update({
-      where: { id: invoice.bookingId },
-      data: { status: "confirmed" },
+      where: { id: updated.bookingId },
+      data: { status: "confirmed", holdExpiresAt: null },
     });
+    return updated;
   });
+
+  try {
+    await sendBookingConfirmationBundle(invoice.bookingId);
+  } catch (err) {
+    console.error("send confirmation after mark paid failed", err);
+  }
 
   revalidatePath("/admin");
   redirect("/admin?tab=invoices&saved=invoice-paid");
@@ -69,12 +80,27 @@ export async function markInvoiceSentAction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) redirect("/admin?tab=invoices&error=Missing+invoice");
 
-  await prisma.invoice.update({
-    where: { id },
-    data: { sentAt: new Date() },
-  });
+  const invoice = await prisma.invoice.findUnique({ where: { id } });
+  if (!invoice) redirect("/admin?tab=invoices&error=Invoice+not+found");
 
-  // Email delivery comes next — for now admin marks as reviewed/sent.
+  const result = await sendInvoiceEmailForBooking(invoice.bookingId);
+  if (!result.ok && !("skipped" in result && result.skipped)) {
+    redirect(
+      `/admin?tab=invoices&error=${encodeURIComponent(result.error)}`,
+    );
+  }
+  if (!result.ok && "skipped" in result && result.skipped) {
+    await prisma.invoice.update({
+      where: { id },
+      data: { sentAt: new Date() },
+    });
+    redirect(
+      `/admin?tab=invoices&saved=invoice-sent&error=${encodeURIComponent(
+        "Marked sent locally — configure RESEND_API_KEY or SMTP to actually email customers.",
+      )}`,
+    );
+  }
+
   revalidatePath("/admin");
   redirect("/admin?tab=invoices&saved=invoice-sent");
 }

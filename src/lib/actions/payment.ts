@@ -5,14 +5,18 @@ import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { redirect } from "next/navigation";
 import { confirmBooking } from "@/lib/booking/confirmBooking";
 import {
+  sendBankTransferBundle,
+  sendBookingConfirmationBundle,
+} from "@/lib/email/bookingMail";
+import {
   getBankTransferDetails,
   isBankTransferConfigured,
 } from "@/lib/payments/bank";
+import { calculateCardServiceFee } from "@/lib/payments/fees";
 import {
   chargeCardPayment,
   isSquareConfigured,
 } from "@/lib/payments/square";
-import { calculateCardServiceFee } from "@/lib/payments/fees";
 import { getSessionId } from "@/lib/session";
 import { bookingSchema } from "@/lib/validation";
 import { z } from "zod";
@@ -30,6 +34,9 @@ export async function payWithCardAction(input: {
   quoteId: string;
   passengerName: string;
   email: string;
+  passengerPhone?: string;
+  passportNumber?: string;
+  nationality?: string;
   seatsBooked: number;
   sourceId: string;
 }): Promise<{ error?: string }> {
@@ -73,7 +80,7 @@ export async function payWithCardAction(input: {
         amountCents: totalCents,
         idempotencyKey: randomUUID(),
         referenceId: parsed.data.quoteId,
-        note: `Flight booking ${parsed.data.passengerName} (incl. 2.2% service fee)`,
+        note: `Flight booking ${parsed.data.passengerName} (incl. 2.2% credit card fee)`,
         buyerEmail: parsed.data.email,
       });
       squarePaymentId = payment.paymentId;
@@ -86,6 +93,9 @@ export async function payWithCardAction(input: {
       sessionId,
       passengerName: parsed.data.passengerName,
       email: parsed.data.email,
+      passengerPhone: parsed.data.passengerPhone || "",
+      passportNumber: parsed.data.passportNumber || "",
+      nationality: parsed.data.nationality || "",
       seatsBooked: parsed.data.seatsBooked,
       paymentMethod: "card",
       invoiceStatus: "paid",
@@ -98,6 +108,12 @@ export async function payWithCardAction(input: {
       return {
         error: `${result.error}. Your card may have been charged — contact support with Square payment ${squarePaymentId}.`,
       };
+    }
+
+    try {
+      await sendBookingConfirmationBundle(result.booking.id);
+    } catch (err) {
+      console.error("confirmation email failed", err);
     }
 
     redirect(`/confirmation/${result.booking.id}`);
@@ -124,6 +140,9 @@ export async function payWithBankTransferAction(
       quoteId: formData.get("quoteId"),
       passengerName: formData.get("passengerName"),
       email: formData.get("email"),
+      passengerPhone: formData.get("passengerPhone") || "",
+      passportNumber: formData.get("passportNumber") || "",
+      nationality: formData.get("nationality") || "",
       seatsBooked: formData.get("seatsBooked") || "1",
     });
 
@@ -136,6 +155,9 @@ export async function payWithBankTransferAction(
 
     const result = await confirmBooking({
       ...parsed.data,
+      passengerPhone: parsed.data.passengerPhone || "",
+      passportNumber: parsed.data.passportNumber || "",
+      nationality: parsed.data.nationality || "",
       sessionId,
       paymentMethod: "bank_transfer",
       invoiceStatus: "unpaid",
@@ -144,6 +166,12 @@ export async function payWithBankTransferAction(
 
     if (!result.ok) {
       return { error: result.error };
+    }
+
+    try {
+      await sendBankTransferBundle(result.booking.id);
+    } catch (err) {
+      console.error("bank transfer email failed", err);
     }
 
     redirect(`/confirmation/${result.booking.id}`);

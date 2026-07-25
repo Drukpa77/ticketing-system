@@ -28,6 +28,9 @@ export function BankCheckoutForm({
 }: BankCheckoutFormProps) {
   const [passengerName, setPassengerName] = useState("");
   const [email, setEmail] = useState("");
+  const [passengerPhone, setPassengerPhone] = useState("");
+  const [passportNumber, setPassportNumber] = useState("");
+  const [nationality, setNationality] = useState("");
   const [seatsBooked, setSeatsBooked] = useState(1);
   const [state, action, pending] = useActionState(
     payWithBankTransferAction,
@@ -45,6 +48,9 @@ export function BankCheckoutForm({
       <input type="hidden" name="quoteId" value={quoteId} />
       <input type="hidden" name="passengerName" value={passengerName} />
       <input type="hidden" name="email" value={email} />
+      <input type="hidden" name="passengerPhone" value={passengerPhone} />
+      <input type="hidden" name="passportNumber" value={passportNumber} />
+      <input type="hidden" name="nationality" value={nationality} />
       <input type="hidden" name="seatsBooked" value={seatsBooked} />
 
       <div>
@@ -55,8 +61,8 @@ export function BankCheckoutForm({
           Request an invoice
         </h2>
         <p className="mt-2 text-sm text-muted">
-          We reserve your seats and give you account details plus a payment
-          reference.
+          We hold your seats for 48 hours, email a tax invoice, and share bank
+          details with your booking reference as the payment description.
         </p>
       </div>
 
@@ -86,6 +92,40 @@ export function BankCheckoutForm({
             placeholder="you@email.com"
             autoComplete="email"
             required
+          />
+        </label>
+        <label className="space-y-1 text-sm">
+          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
+            Phone
+          </span>
+          <input
+            value={passengerPhone}
+            onChange={(e) => setPassengerPhone(e.target.value)}
+            className={fieldClass}
+            placeholder="+61 412 345 678"
+            autoComplete="tel"
+          />
+        </label>
+        <label className="space-y-1 text-sm">
+          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
+            Passport number
+          </span>
+          <input
+            value={passportNumber}
+            onChange={(e) => setPassportNumber(e.target.value)}
+            className={fieldClass}
+            placeholder="N1234567"
+          />
+        </label>
+        <label className="space-y-1 text-sm">
+          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
+            Nationality
+          </span>
+          <input
+            value={nationality}
+            onChange={(e) => setNationality(e.target.value)}
+            className={fieldClass}
+            placeholder="Australian"
           />
         </label>
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -134,6 +174,11 @@ export function BankCheckoutForm({
         <div className="flex justify-between gap-4">
           <dt className="text-muted">Account</dt>
           <dd className="font-medium">{bankPreview.accountNumber}</dd>
+        </div>
+        <div className="border-t border-line pt-3 text-xs leading-relaxed text-muted">
+          Seats stay on hold for 48 hours. If payment is not confirmed in that
+          window, the hold ends, seats return to the pool, and you will need to
+          book again.
         </div>
       </dl>
 

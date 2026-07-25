@@ -1,4 +1,4 @@
-/** Square online rate passed through to the customer as a labelled service fee. */
+/** Square online rate passed through to the customer as a credit card fee. */
 export const CARD_SERVICE_FEE_RATE = 0.022;
 
 export function calculateCardServiceFee(fareCents: number) {
