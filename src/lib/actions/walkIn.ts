@@ -1,10 +1,12 @@
 "use server";
 
+import { requireAdmin } from "@/lib/adminAuth";
+
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   bankHoldExpiresAt,
+  makeAccessToken,
   makeBookingRef,
   makeInvoiceNumber,
   makeTicketNumber,
@@ -29,16 +31,6 @@ import { calculateCardServiceFee } from "@/lib/payments/fees";
 import { priceFlight } from "@/lib/pricing/service";
 import { z } from "zod";
 
-const ADMIN_COOKIE = "ts_admin";
-
-async function requireAdmin() {
-  const jar = await cookies();
-  const token = jar.get(ADMIN_COOKIE)?.value;
-  const password = process.env.ADMIN_PASSWORD;
-  if (!password || token !== password) {
-    redirect("/admin?error=Unauthorized");
-  }
-}
 
 const walkInSchema = z.object({
   flightId: z.string().min(1),
@@ -190,6 +182,7 @@ export async function createWalkInBookingAction(formData: FormData) {
           status: paidUpfront ? "confirmed" : "pending_payment",
           bookingRef,
           ticketNumber: makeTicketNumber(),
+          accessToken: makeAccessToken(),
           holdExpiresAt,
         },
       });

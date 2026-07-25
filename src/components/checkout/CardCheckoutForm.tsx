@@ -8,7 +8,7 @@ import { calculateCardServiceFee } from "@/lib/payments/fees";
 import { formatAud } from "@/lib/pricing";
 
 const fieldClass =
-  "w-full border-0 border-b border-line bg-transparent py-3 text-sm text-foreground outline-none transition focus:border-accent";
+  "w-full border-0 border-b border-line bg-transparent py-3 text-sm text-foreground outline-none transition focus-visible:border-accent focus-visible:shadow-[0_2px_0_0_var(--accent)]";
 
 const AU_STATES = [
   "ACT",
@@ -25,9 +25,9 @@ type CardCheckoutFormProps = {
   quoteId: string;
   maxSeats: number;
   unitPriceCents: number;
-  initialPassenger?: {
-    passengerName?: string;
-    email?: string;
+  initialPassenger: {
+    passengerName: string;
+    email: string;
     passengerPhone?: string;
     passportNumber?: string;
     nationality?: string;
@@ -57,21 +57,14 @@ export function CardCheckoutForm({
   initialPassenger,
   square,
 }: CardCheckoutFormProps) {
-  const [passengerName, setPassengerName] = useState(
-    initialPassenger?.passengerName ?? "",
-  );
-  const [email, setEmail] = useState(initialPassenger?.email ?? "");
-  const [passengerPhone, setPassengerPhone] = useState(
-    initialPassenger?.passengerPhone ?? "",
-  );
-  const [passportNumber, setPassportNumber] = useState(
-    initialPassenger?.passportNumber ?? "",
-  );
-  const [nationality, setNationality] = useState(
-    initialPassenger?.nationality ?? "",
-  );
-  const [seatsBooked, setSeatsBooked] = useState(
-    initialPassenger?.seatsBooked ?? 1,
+  const passengerName = initialPassenger.passengerName.trim();
+  const email = initialPassenger.email.trim();
+  const passengerPhone = (initialPassenger.passengerPhone ?? "").trim();
+  const passportNumber = (initialPassenger.passportNumber ?? "").trim();
+  const nationality = (initialPassenger.nationality ?? "").trim();
+  const seatsBooked = Math.min(
+    Math.max(1, initialPassenger.seatsBooked ?? 1),
+    Math.min(9, Math.max(1, maxSeats)),
   );
   const [billingLine1, setBillingLine1] = useState("");
   const [billingLine2, setBillingLine2] = useState("");
@@ -82,13 +75,12 @@ export function CardCheckoutForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const seatMax = Math.min(9, Math.max(1, maxSeats));
   const fareCents = unitPriceCents * seatsBooked;
   const fee = useMemo(() => calculateCardServiceFee(fareCents), [fareCents]);
 
   const passengerOk =
-    passengerName.trim().length >= 2 &&
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+    passengerName.length >= 2 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   const billingOk =
     billingLine1.trim().length >= 3 &&
@@ -101,8 +93,8 @@ export function CardCheckoutForm({
     () => ({
       givenName: names.givenName,
       familyName: names.familyName,
-      email: email.trim(),
-      phone: passengerPhone.trim() || undefined,
+      email,
+      phone: passengerPhone || undefined,
       addressLines: [billingLine1.trim(), billingLine2.trim()].filter(Boolean),
       city: billingCity.trim(),
       state: billingState.trim(),
@@ -141,83 +133,28 @@ export function CardCheckoutForm({
         </p>
       </div>
 
-      <div className="grid gap-5">
-        <label className="space-y-1 text-sm">
-          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-            Full name
-          </span>
-          <input
-            value={passengerName}
-            onChange={(e) => setPassengerName(e.target.value)}
-            className={fieldClass}
-            placeholder="Alex Morgan"
-            autoComplete="name"
-          />
-        </label>
-        <label className="space-y-1 text-sm">
-          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-            Email for invoice & ticket
-          </span>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={fieldClass}
-            placeholder="you@email.com"
-            autoComplete="email"
-          />
-        </label>
-        <label className="space-y-1 text-sm">
-          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-            Phone
-          </span>
-          <input
-            value={passengerPhone}
-            onChange={(e) => setPassengerPhone(e.target.value)}
-            className={fieldClass}
-            placeholder="+61 412 345 678"
-            autoComplete="tel"
-          />
-        </label>
-        <label className="space-y-1 text-sm">
-          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-            Passport number
-          </span>
-          <input
-            value={passportNumber}
-            onChange={(e) => setPassportNumber(e.target.value)}
-            className={fieldClass}
-            placeholder="N1234567"
-          />
-        </label>
-        <label className="space-y-1 text-sm">
-          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-            Nationality
-          </span>
-          <input
-            value={nationality}
-            onChange={(e) => setNationality(e.target.value)}
-            className={fieldClass}
-            placeholder="Australian"
-          />
-        </label>
-        <label className="space-y-1 text-sm">
-          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-            Seats
-          </span>
-          <input
-            type="number"
-            min={1}
-            max={seatMax}
-            value={seatsBooked}
-            onChange={(e) =>
-              setSeatsBooked(
-                Math.min(seatMax, Math.max(1, Number(e.target.value) || 1)),
-              )
-            }
-            className={`${fieldClass} w-28`}
-          />
-        </label>
+      <div className="rounded-2xl border border-line bg-surface/60 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+              Passenger details
+            </p>
+            <p className="mt-2 font-semibold text-foreground">{passengerName}</p>
+            <p className="mt-1 break-all text-sm text-muted">{email}</p>
+            {passengerPhone ? (
+              <p className="mt-1 text-sm text-muted">{passengerPhone}</p>
+            ) : null}
+            <p className="mt-3 text-sm text-muted">
+              {seatsBooked} seat{seatsBooked === 1 ? "" : "s"}
+            </p>
+          </div>
+          <Link
+            href={`/checkout/${quoteId}/passengers`}
+            className="text-sm font-semibold text-accent underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+          >
+            Edit details
+          </Link>
+        </div>
       </div>
 
       <div className="border border-line bg-white/80 p-5 sm:p-6">
@@ -378,11 +315,11 @@ export function CardCheckoutForm({
               try {
                 const result = await payWithCardAction({
                   quoteId,
-                  passengerName: passengerName.trim(),
-                  email: email.trim(),
-                  passengerPhone: passengerPhone.trim(),
-                  passportNumber: passportNumber.trim(),
-                  nationality: nationality.trim(),
+                  passengerName,
+                  email,
+                  passengerPhone,
+                  passportNumber,
+                  nationality,
                   seatsBooked,
                   sourceId: token,
                   billingAddress: {
@@ -407,13 +344,17 @@ export function CardCheckoutForm({
         />
       </div>
 
-      {error && <p className="text-sm text-red-700">{error}</p>}
+      {error ? (
+        <p role="alert" className="text-sm text-red-700">
+          {error}
+        </p>
+      ) : null}
 
       <p className="text-sm text-muted">
         Prefer invoice with no credit card fee?{" "}
         <Link
           href={`/checkout/${quoteId}/bank`}
-          className="font-medium text-accent underline"
+          className="font-medium text-accent underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
           Pay by bank transfer
         </Link>

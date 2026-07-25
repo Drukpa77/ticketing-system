@@ -19,6 +19,7 @@ type FlightResultsClientProps = {
   tripType: "one_way" | "round_trip";
   passengers?: number;
   cabinClass?: "economy" | "business";
+  allTickets?: boolean;
   title?: string;
   summaryTitle?: string;
   dayFares: DateStripDay[];
@@ -39,6 +40,7 @@ export function FlightResultsClient({
   tripType,
   passengers = 1,
   cabinClass = "economy",
+  allTickets = false,
   summaryTitle,
   dayFares,
   baseParams,
@@ -95,18 +97,30 @@ export function FlightResultsClient({
         tripType={tripType}
         passengers={passengers}
         cabinClass={cabinClass}
+        allTickets={allTickets}
         title={summaryTitle}
         airports={airports}
+        searchParams={baseParams}
       />
 
-      <DateStrip
-        selectedDate={stripDate ?? date}
-        dayFares={dayFares}
-        baseParams={baseParams}
-        dateParam={dateParam}
-      />
+      {!allTickets ? (
+        <DateStrip
+          selectedDate={stripDate ?? date}
+          dayFares={dayFares}
+          baseParams={baseParams}
+          dateParam={dateParam}
+        />
+      ) : (
+        <div className="border-b border-line bg-white">
+          <div className="mx-auto w-full max-w-6xl px-4 py-3 text-sm text-muted sm:px-6">
+            Showing every active flight across all routes, cabins, and departure
+            dates. Use <span className="font-medium text-foreground">Filter by date</span>{" "}
+            to return to your search.
+          </div>
+        </div>
+      )}
 
-      {outboundSummary ? (
+      {outboundSummary && !allTickets ? (
         <div className="border-b border-line bg-white">
           <div className="mx-auto w-full max-w-6xl px-4 py-3 text-sm text-muted sm:px-6">
             <p className="font-semibold text-foreground">Outbound selected</p>

@@ -460,7 +460,7 @@ export function AdminDashboard({
                 required
                 maxLength={3}
                 defaultValue={editing?.origin ?? ""}
-                placeholder="SYD"
+                placeholder="PER"
                 className={`${fieldClass} uppercase`}
               />
             </label>
@@ -473,7 +473,7 @@ export function AdminDashboard({
                 required
                 maxLength={3}
                 defaultValue={editing?.destination ?? ""}
-                placeholder="MEL"
+                placeholder="PBH"
                 className={`${fieldClass} uppercase`}
               />
             </label>

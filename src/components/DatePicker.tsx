@@ -148,7 +148,7 @@ export function DatePicker({
         aria-expanded={open}
         aria-label={label}
         onClick={() => setOpen((v) => !v)}
-        className={`relative flex min-h-[5.5rem] w-full min-w-0 flex-col items-center justify-center px-4 py-3 text-center transition ${
+        className={`relative flex min-h-[5.5rem] w-full min-w-0 flex-col items-center justify-center px-4 py-3 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${
           open ? "bg-[linear-gradient(180deg,rgba(37,99,235,0.06),transparent)]" : ""
         } ${className}`}
       >
@@ -168,7 +168,7 @@ export function DatePicker({
         aria-expanded={open}
         aria-label={label}
         onClick={() => setOpen((v) => !v)}
-        className={`flex w-full min-w-0 items-center justify-between gap-3 border-0 border-b bg-transparent py-3 text-left text-base outline-none transition ${
+        className={`flex w-full min-w-0 items-center justify-between gap-3 border-0 border-b bg-transparent py-3 text-left text-base outline-none transition focus-visible:border-accent focus-visible:shadow-[0_2px_0_0_var(--accent)] ${
           open ? "border-accent" : "border-line hover:border-accent/60"
         } ${className}`}
       >

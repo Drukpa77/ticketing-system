@@ -1,20 +1,25 @@
-import { cookies } from "next/headers";
+import { timingSafeEqual } from "crypto";
 import { redirect } from "next/navigation";
 import { AdminDashboard } from "@/components/AdminDashboard";
+import {
+  clearAdminSessionCookie,
+  isAdminAuthed,
+  setAdminSessionCookie,
+} from "@/lib/adminAuth";
 import { getFlightPriceAnalytics } from "@/lib/analytics/pricingAnalytics";
-import { expireStaleBankHolds } from "@/lib/booking/expireHolds";
+import {
+  expireStaleBankHolds,
+  expireStaleQuotes,
+} from "@/lib/booking/expireHolds";
 import { prisma } from "@/lib/db";
 import { listAllCharterFareProductsAdmin } from "@/lib/fares/charter";
 import { adminLoginSchema } from "@/lib/validation";
 
-const ADMIN_COOKIE = "ts_admin";
-
-async function isAdminAuthed() {
-  const jar = await cookies();
-  const token = jar.get(ADMIN_COOKIE)?.value;
-  const password = process.env.ADMIN_PASSWORD;
-  if (!password) return false;
-  return token === password;
+function passwordMatches(input: string, expected: string) {
+  const a = Buffer.from(input);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
 }
 
 function parseTab(
@@ -61,24 +66,16 @@ export default async function AdminPage({
     if (!expected) {
       redirect("/admin?error=ADMIN_PASSWORD+is+not+configured");
     }
-    if (!parsed.success || parsed.data.password !== expected) {
+    if (!parsed.success || !passwordMatches(parsed.data.password, expected)) {
       redirect("/admin?error=Invalid+password");
     }
-    const jar = await cookies();
-    jar.set(ADMIN_COOKIE, expected, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 8,
-    });
+    await setAdminSessionCookie();
     redirect("/admin?tab=flights");
   }
 
   async function logout() {
     "use server";
-    const jar = await cookies();
-    jar.delete(ADMIN_COOKIE);
+    await clearAdminSessionCookie();
     redirect("/admin");
   }
 
@@ -150,6 +147,7 @@ export default async function AdminPage({
 
   // Best-effort: expire stale bank holds when ops open the dashboard.
   try {
+    await expireStaleQuotes();
     await expireStaleBankHolds();
   } catch (err) {
     console.error("expire stale holds on admin load failed", err);

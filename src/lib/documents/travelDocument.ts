@@ -357,6 +357,16 @@ export function renderTravelDocumentHtml(data: BookingDocumentData) {
       letter-spacing: .06em;
       width: fit-content;
     }
+    .awaiting-pay {
+      margin: 16px 48px 8px;
+      padding: 16px 18px;
+      border: 2px solid #b45309;
+      background: #fffbeb;
+      border-radius: 8px;
+      color: #78350f;
+    }
+    .awaiting-pay strong { display: block; font-size: 14px; margin-bottom: 6px; }
+    .awaiting-pay p { margin: 0; font-size: 12.5px; line-height: 1.45; }
     .banner-fallback .end {
       width: 54px;
       background: #071c3a;
@@ -757,8 +767,15 @@ export function renderTravelDocumentHtml(data: BookingDocumentData) {
           </div>`
     }
 
-    ${boardingPass(data.flight, passOpts)}
-    ${data.returnFlight ? boardingPass(data.returnFlight, passOpts) : ""}
+    ${
+      unpaid
+        ? `<div class="awaiting-pay">
+            <strong>Awaiting payment confirmation</strong>
+            <p>Boarding passes are issued only after your bank transfer is verified. This page is a reservation summary, not a travel document.</p>
+          </div>`
+        : `${boardingPass(data.flight, passOpts)}
+    ${data.returnFlight ? boardingPass(data.returnFlight, passOpts) : ""}`
+    }
 
     <div class="mid-split">
       <div>

@@ -7,6 +7,7 @@ import { emailMyBankInvoiceAction } from "@/lib/actions/customerInvoice";
 type InvoiceDeliveryActionsProps = {
   bookingId: string;
   invoiceNumber: string;
+  invoiceHref: string;
   customerEmail: string;
   unpaid: boolean;
   initialEmailed?: boolean | null;
@@ -14,7 +15,7 @@ type InvoiceDeliveryActionsProps = {
 
 export function InvoiceDeliveryActions({
   bookingId,
-  invoiceNumber,
+  invoiceHref,
   customerEmail,
   unpaid,
   initialEmailed = null,
@@ -53,7 +54,7 @@ export function InvoiceDeliveryActions({
     <div className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <Link
-          href={`/documents/invoice/${encodeURIComponent(invoiceNumber)}`}
+          href={invoiceHref}
           className={`${unpaid ? "btn-cta" : "btn-secondary"} min-h-11 px-5 py-2.5 text-sm`}
           target="_blank"
         >

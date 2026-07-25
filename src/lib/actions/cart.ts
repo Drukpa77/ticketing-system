@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { releaseQuoteHold } from "@/lib/booking/inventory";
 import { prisma } from "@/lib/db";
 import { getSessionId } from "@/lib/session";
 
@@ -15,10 +16,7 @@ export async function removeCartItemAction(formData: FormData) {
   });
 
   if (quote) {
-    await prisma.priceQuote.update({
-      where: { id: quote.id },
-      data: { status: "expired" },
-    });
+    await releaseQuoteHold(quote.id);
   }
 
   revalidatePath("/cart");

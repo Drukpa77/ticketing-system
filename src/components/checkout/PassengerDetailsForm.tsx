@@ -4,7 +4,7 @@ import { useState } from "react";
 import { savePassengerDetailsAction } from "@/lib/actions/passengers";
 
 const fieldClass =
-  "mt-1.5 w-full rounded-lg border border-line bg-white px-3.5 py-3 text-sm text-foreground outline-none transition focus:border-accent";
+  "mt-1.5 w-full rounded-lg border border-line bg-white px-3.5 py-3 text-sm text-foreground outline-none transition focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/35";
 
 type PassengerDetailsFormProps = {
   quoteId: string;
@@ -238,12 +238,17 @@ export function PassengerDetailsForm({
           type="checkbox"
           name="privacyAccepted"
           required
-          className="mt-1"
+          className="mt-1 size-4 accent-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         />
         <span>
           I understand and accept that my personal data will be processed in
           accordance with our{" "}
-          <a href="#privacy" className="font-semibold text-accent hover:text-accent-deep">
+          <a
+            href="/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-accent underline-offset-2 hover:text-accent-deep hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+          >
             Privacy Policy
           </a>
           .

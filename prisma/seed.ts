@@ -12,6 +12,15 @@ if (!connectionString) {
   throw new Error("DATABASE_URL is required to seed the database");
 }
 
+if (
+  process.env.NODE_ENV === "production" &&
+  process.env.ALLOW_SEED !== "1"
+) {
+  throw new Error(
+    "Refusing to seed production without ALLOW_SEED=1 (destroys bookings/invoices).",
+  );
+}
+
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
@@ -26,6 +35,7 @@ function addHours(date: Date, hours: number): Date {
   return new Date(date.getTime() + hours * 60 * 60 * 1000);
 }
 
+/** Drukair charter demo: Perth ⇄ Paro (business cabin). */
 async function main() {
   await prisma.invoice.deleteMany();
   await prisma.booking.deleteMany();
@@ -47,107 +57,104 @@ async function main() {
     },
   });
 
-  const flights = [
+  // Inventory buckets (prices are overridden by CharterFareProduct at checkout).
+  // Keep release prices > 0 so createPriceQuote gates pass.
+  const businessReleasePrices = [129_900, 159_900, 189_900];
+  const economyReleasePrices = [89_900, 109_900, 129_900];
+
+  const schedules = [
     {
-      airline: "Qantas",
-      flightNumber: "QF401",
-      origin: "SYD",
-      destination: "MEL",
-      departureAt: daysFromNow(3, 1),
-      durationHours: 1.5,
-      cabinClass: "business" as const,
-    },
-    {
-      airline: "Qantas",
-      flightNumber: "QF402",
-      origin: "MEL",
-      destination: "SYD",
-      departureAt: daysFromNow(7, 4),
-      durationHours: 1.5,
-      cabinClass: "business" as const,
-    },
-    {
-      airline: "Virgin Australia",
-      flightNumber: "VA823",
-      origin: "SYD",
-      destination: "MEL",
-      departureAt: daysFromNow(3, 3),
-      durationHours: 1.5,
-      cabinClass: "business" as const,
-    },
-    {
-      airline: "Qantas",
-      flightNumber: "QF511",
-      origin: "MEL",
-      destination: "BNE",
+      airline: "Drukair",
+      flightNumber: "KB500",
+      origin: "PER",
+      destination: "PBH",
       departureAt: daysFromNow(5, 2),
-      durationHours: 2.2,
-      cabinClass: "economy" as const,
+      durationHours: 9.5,
     },
     {
-      airline: "Virgin Australia",
-      flightNumber: "VA317",
-      origin: "BNE",
-      destination: "SYD",
-      departureAt: daysFromNow(5, 8),
-      durationHours: 1.6,
-      cabinClass: "business" as const,
+      airline: "Drukair",
+      flightNumber: "KB501",
+      origin: "PBH",
+      destination: "PER",
+      departureAt: daysFromNow(12, 6),
+      durationHours: 9.5,
     },
     {
-      airline: "Qantas",
-      flightNumber: "QF1",
-      origin: "SYD",
-      destination: "SIN",
-      departureAt: daysFromNow(7, 11),
-      durationHours: 8.5,
-      cabinClass: "business" as const,
+      airline: "Drukair",
+      flightNumber: "KB502",
+      origin: "PER",
+      destination: "PBH",
+      departureAt: daysFromNow(8, 1),
+      durationHours: 9.5,
     },
     {
-      airline: "Qantas",
-      flightNumber: "QF2",
-      origin: "SIN",
-      destination: "SYD",
-      departureAt: daysFromNow(14, 9),
-      durationHours: 8.5,
-      cabinClass: "business" as const,
+      airline: "Drukair",
+      flightNumber: "KB503",
+      origin: "PBH",
+      destination: "PER",
+      departureAt: daysFromNow(15, 5),
+      durationHours: 9.5,
     },
-  ];
+    {
+      airline: "Drukair",
+      flightNumber: "KB510",
+      origin: "PER",
+      destination: "PBH",
+      departureAt: daysFromNow(19, 3),
+      durationHours: 9.5,
+    },
+    {
+      airline: "Drukair",
+      flightNumber: "KB511",
+      origin: "PBH",
+      destination: "PER",
+      departureAt: daysFromNow(26, 7),
+      durationHours: 9.5,
+    },
+  ] as const;
 
-  // Demo prices so search works out of the box — admin can change anytime.
-  const demoPricesBusiness = [449900, 499900, 549900];
-  const demoPricesEconomy = [89900, 109900, 129900];
+  const cabins = ["economy", "business"] as const;
+  let created = 0;
 
-  for (const flight of flights) {
-    const { durationHours, cabinClass, ...rest } = flight;
-    const template = fareTemplateForCabin(cabinClass);
-    const prices =
-      cabinClass === "economy" ? demoPricesEconomy : demoPricesBusiness;
-    const releases = template.map((t, i) => ({
-      name: t.name,
-      sortOrder: t.sortOrder,
-      totalSeats: t.totalSeats,
-      remainingSeats: t.totalSeats,
-      priceCents: prices[i] ?? 0,
-      active: true,
-    }));
-    const totalSeats = releases.reduce((s, r) => s + r.totalSeats, 0);
-
-    await prisma.flight.create({
-      data: {
-        ...rest,
-        cabinClass,
-        arrivalAt: addHours(flight.departureAt, durationHours),
-        currency: "AUD",
-        totalSeats,
-        remainingSeats: totalSeats,
+  for (const schedule of schedules) {
+    for (const cabinClass of cabins) {
+      const template = fareTemplateForCabin(cabinClass);
+      const releasePrices =
+        cabinClass === "business"
+          ? businessReleasePrices
+          : economyReleasePrices;
+      const releases = template.map((t, i) => ({
+        name: t.name,
+        sortOrder: t.sortOrder,
+        totalSeats: t.totalSeats,
+        remainingSeats: t.totalSeats,
+        priceCents: releasePrices[i] ?? releasePrices[0],
         active: true,
-        fareReleases: { create: releases },
-      },
-    });
+      }));
+      const totalSeats = releases.reduce((s, r) => s + r.totalSeats, 0);
+
+      await prisma.flight.create({
+        data: {
+          airline: schedule.airline,
+          flightNumber: schedule.flightNumber,
+          origin: schedule.origin,
+          destination: schedule.destination,
+          departureAt: schedule.departureAt,
+          cabinClass,
+          arrivalAt: addHours(schedule.departureAt, schedule.durationHours),
+          currency: "AUD",
+          totalSeats,
+          remainingSeats: totalSeats,
+          active: true,
+          fareReleases: { create: releases },
+        },
+      });
+      created += 1;
+    }
   }
 
   console.log(
-    `Seeded ${flights.length} flights with Early Bird / Standard / Final Release fares`,
+    `Seeded ${created} Drukair PER⇄PBH flights (KB500–KB511 · economy + business)`,
   );
 }
 

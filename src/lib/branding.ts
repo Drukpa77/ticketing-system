@@ -1,3 +1,5 @@
+import { randomBytes, randomInt } from "crypto";
+
 export function getBrand() {
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
@@ -81,20 +83,25 @@ export function formatDocTime(date: Date) {
   }).format(date);
 }
 
+/** Unguessable secret for document / confirmation links. */
+export function makeAccessToken() {
+  return randomBytes(24).toString("base64url");
+}
+
 export function makeBookingRef(prefix = getBrand().bookingPrefix) {
   const stamp = new Date().toISOString().slice(0, 10).replaceAll("-", "");
-  const rand = Math.floor(Math.random() * 9000 + 1000);
+  const rand = randomBytes(5).toString("hex").toUpperCase();
   return `${prefix}-${stamp}-${rand}`;
 }
 
 export function makeTicketNumber() {
-  const rand = Math.floor(Math.random() * 900000000 + 100000000);
+  const rand = randomInt(100_000_000, 1_000_000_000);
   return `ET-${rand}`;
 }
 
 export function makeInvoiceNumber() {
   const stamp = new Date().toISOString().slice(0, 10).replaceAll("-", "");
-  const rand = Math.floor(Math.random() * 90000 + 10000);
+  const rand = randomBytes(4).toString("hex").toUpperCase();
   return `INV-${stamp}-${rand}`;
 }
 

@@ -26,6 +26,7 @@ export async function loadBookingDocumentData(
   return {
     bookingRef: booking.bookingRef,
     ticketNumber: booking.ticketNumber,
+    accessToken: booking.accessToken,
     createdAt: booking.createdAt,
     status: booking.status,
     passengerName: booking.passengerName,
@@ -134,8 +135,8 @@ export async function sendBankTransferBundle(bookingId: string) {
 
   const email = bankTransferEmail(data);
   const airfareHtml = renderAirfareInvoiceHtml(data);
-  const travelDoc = renderTravelDocumentHtml(data);
 
+  // Invoice only until payment is confirmed — do not attach boarding passes.
   const result = await sendEmail({
     to: data.email,
     subject: email.subject,
@@ -145,11 +146,6 @@ export async function sendBankTransferBundle(bookingId: string) {
       {
         filename: `Airfare-Invoice-${data.invoice.invoiceNumber}.html`,
         content: airfareHtml,
-        contentType: "text/html",
-      },
-      {
-        filename: `E-Ticket-Itinerary-${data.bookingRef}.html`,
-        content: travelDoc,
         contentType: "text/html",
       },
     ],

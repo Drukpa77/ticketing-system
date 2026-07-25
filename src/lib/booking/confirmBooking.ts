@@ -1,5 +1,6 @@
 import {
   bankHoldExpiresAt,
+  makeAccessToken,
   makeBookingRef,
   makeInvoiceNumber,
   makeTicketNumber,
@@ -13,6 +14,11 @@ import {
 } from "@/lib/documents/invoiceFields";
 import { getCurrentFareRelease } from "@/lib/fares/current";
 import { getPricingConfig, priceFlight } from "@/lib/pricing/service";
+import {
+  decrementFareAndFlight,
+  releaseQuoteHold,
+  syncQuoteSeatHold,
+} from "@/lib/booking/inventory";
 
 export async function createPriceQuote(input: {
   flightId: string;
@@ -21,6 +27,10 @@ export async function createPriceQuote(input: {
   /** Selected charter fare product (Saver / Flexi / …) — locks catalogue price. */
   fareProductId?: string;
 }) {
+  if (!input.sessionId || input.sessionId === "anonymous") {
+    return { ok: false as const, error: "Missing browser session — refresh and try again" };
+  }
+
   const tripType = input.returnFlightId ? "round_trip" : "one_way";
 
   const flight = await prisma.flight.findFirst({
@@ -121,76 +131,94 @@ export async function createPriceQuote(input: {
 
   const totalCents = outboundCents + returnCents;
   const expiresAt = new Date(Date.now() + config.quoteTtlMinutes * 60 * 1000);
+  const holdSeats = 1;
 
-  const quote = await prisma.$transaction(async (tx) => {
-    const created = await tx.priceQuote.create({
-      data: {
-        flightId: flight.id,
-        fareReleaseId: outboundCurrent.id,
-        fareReleaseName,
-        returnFlightId: returnFlight?.id,
-        returnFareReleaseId: returnCurrent?.id,
-        returnFareReleaseName,
-        fareProductCode,
-        fareProductName,
-        tripType,
-        sessionId: input.sessionId,
-        quotedPriceCents: totalCents,
-        outboundPriceCents: outboundCents,
-        returnPriceCents: returnCents,
-        basePriceSnapshotCents:
-          outboundCurrent.priceCents + (returnCurrent?.priceCents ?? 0),
-        demandMultiplier: outboundPrice.demandMultiplier,
-        scarcityMultiplier: outboundPrice.scarcityMultiplier,
-        baseMarkup: outboundPrice.baseMarkup,
-        expiresAt,
-        status: "active",
-      },
-    });
-
-    await tx.demandEvent.create({
-      data: {
-        flightId: flight.id,
-        type: "hold",
-        sessionId: input.sessionId,
-      },
-    });
-    if (returnFlight) {
-      await tx.demandEvent.create({
-        data: {
-          flightId: returnFlight.id,
-          type: "hold",
-          sessionId: input.sessionId,
-        },
-      });
-    }
-
-    return created;
+  // One active cart item per session — release any prior holds first.
+  const priorQuotes = await prisma.priceQuote.findMany({
+    where: { sessionId: input.sessionId, status: "active" },
+    select: { id: true },
   });
-
-  return { ok: true as const, quote };
-}
-
-async function decrementFareAndFlight(
-  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
-  flightId: string,
-  fareReleaseId: string,
-  seats: number,
-) {
-  const fareUpdated = await tx.fareRelease.updateMany({
-    where: { id: fareReleaseId, remainingSeats: { gte: seats } },
-    data: { remainingSeats: { decrement: seats } },
-  });
-  if (fareUpdated.count !== 1) {
-    throw new Error("Not enough seats in this fare release");
+  for (const prior of priorQuotes) {
+    await releaseQuoteHold(prior.id);
   }
 
-  const flightUpdated = await tx.flight.updateMany({
-    where: { id: flightId, remainingSeats: { gte: seats } },
-    data: { remainingSeats: { decrement: seats } },
-  });
-  if (flightUpdated.count !== 1) {
-    throw new Error("Not enough seats remaining");
+  try {
+    const quote = await prisma.$transaction(
+      async (tx) => {
+        await decrementFareAndFlight(
+          tx,
+          flight.id,
+          outboundCurrent.id,
+          holdSeats,
+        );
+        if (returnFlight && returnCurrent) {
+          await decrementFareAndFlight(
+            tx,
+            returnFlight.id,
+            returnCurrent.id,
+            holdSeats,
+          );
+        }
+
+        const created = await tx.priceQuote.create({
+          data: {
+            flightId: flight.id,
+            fareReleaseId: outboundCurrent.id,
+            fareReleaseName,
+            returnFlightId: returnFlight?.id,
+            returnFareReleaseId: returnCurrent?.id,
+            returnFareReleaseName,
+            fareProductCode,
+            fareProductName,
+            tripType,
+            sessionId: input.sessionId,
+            quotedPriceCents: totalCents,
+            outboundPriceCents: outboundCents,
+            returnPriceCents: returnCents,
+            basePriceSnapshotCents:
+              outboundCurrent.priceCents + (returnCurrent?.priceCents ?? 0),
+            demandMultiplier: outboundPrice.demandMultiplier,
+            scarcityMultiplier: outboundPrice.scarcityMultiplier,
+            baseMarkup: outboundPrice.baseMarkup,
+            expiresAt,
+            status: "active",
+            seatsBooked: holdSeats,
+            heldSeats: holdSeats,
+            inventoryHeld: true,
+          },
+        });
+
+        await tx.demandEvent.create({
+          data: {
+            flightId: flight.id,
+            type: "hold",
+            sessionId: input.sessionId,
+          },
+        });
+        if (returnFlight) {
+          await tx.demandEvent.create({
+            data: {
+              flightId: returnFlight.id,
+              type: "hold",
+              sessionId: input.sessionId,
+            },
+          });
+        }
+
+        return created;
+      },
+      { maxWait: 15_000, timeout: 30_000 },
+    );
+
+    return { ok: true as const, quote };
+  } catch (error) {
+    return {
+      ok: false as const,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not hold seats for this fare",
+    };
   }
 }
 
@@ -215,183 +243,190 @@ export async function confirmBooking(input: {
     accountNumber: string;
   } | null;
 }) {
+  if (!input.sessionId || input.sessionId === "anonymous") {
+    return { ok: false as const, error: "Missing browser session — refresh and try again" };
+  }
+
+  // Align soft-hold to requested seats before consuming the quote.
+  const hold = await syncQuoteSeatHold(
+    input.quoteId,
+    input.sessionId,
+    input.seatsBooked,
+  );
+  if (!hold.ok) {
+    return { ok: false as const, error: hold.error };
+  }
+
   try {
     const result = await prisma.$transaction(
       async (tx) => {
-      const quote = await tx.priceQuote.findUnique({
-        where: { id: input.quoteId },
-      });
+        const quote = await tx.priceQuote.findUnique({
+          where: { id: input.quoteId },
+        });
 
-      if (!quote) throw new Error("Quote not found");
-      if (quote.sessionId !== input.sessionId) {
-        throw new Error("Quote does not belong to this session");
-      }
-      if (quote.status === "used") throw new Error("Quote already used");
-      if (quote.status === "expired" || quote.expiresAt <= new Date()) {
+        if (!quote) throw new Error("Quote not found");
+        if (quote.sessionId !== input.sessionId) {
+          throw new Error("Quote does not belong to this session");
+        }
+        if (quote.status === "used") throw new Error("Quote already used");
+        if (quote.status === "expired" || quote.expiresAt <= new Date()) {
+          throw new Error("Quote has expired — please book again");
+        }
+        if (quote.status !== "active") throw new Error("Quote is not active");
+        if (!quote.fareReleaseId) throw new Error("Quote missing fare release");
+        if (!quote.inventoryHeld || quote.heldSeats < input.seatsBooked) {
+          throw new Error("Seats are no longer held — please select fares again");
+        }
+
+        const flight = await tx.flight.findUnique({
+          where: { id: quote.flightId },
+        });
+        if (!flight || !flight.active) {
+          throw new Error("Outbound flight not available");
+        }
+
+        let returnFlight = null;
+        if (quote.returnFlightId) {
+          returnFlight = await tx.flight.findUnique({
+            where: { id: quote.returnFlightId },
+          });
+          if (!returnFlight || !returnFlight.active) {
+            throw new Error("Return flight not available");
+          }
+          if (!quote.returnFareReleaseId) {
+            throw new Error("Return fare release missing");
+          }
+        }
+
+        // Inventory already soft-held on the quote — do not decrement again.
         await tx.priceQuote.update({
           where: { id: quote.id },
-          data: { status: "expired" },
+          data: {
+            status: "used",
+            inventoryHeld: false,
+            heldSeats: 0,
+            seatsBooked: input.seatsBooked,
+          },
         });
-        throw new Error("Quote has expired — please book again");
-      }
-      if (quote.status !== "active") throw new Error("Quote is not active");
-      if (!quote.fareReleaseId) throw new Error("Quote missing fare release");
 
-      const flight = await tx.flight.findUnique({
-        where: { id: quote.flightId },
-      });
-      if (!flight || !flight.active) throw new Error("Outbound flight not available");
-
-      let returnFlight = null;
-      if (quote.returnFlightId) {
-        returnFlight = await tx.flight.findUnique({
-          where: { id: quote.returnFlightId },
-        });
-        if (!returnFlight || !returnFlight.active) {
-          throw new Error("Return flight not available");
-        }
-        if (!quote.returnFareReleaseId) {
-          throw new Error("Return fare release missing");
-        }
-      }
-
-      await decrementFareAndFlight(
-        tx,
-        flight.id,
-        quote.fareReleaseId,
-        input.seatsBooked,
-      );
-      if (returnFlight && quote.returnFareReleaseId) {
-        await decrementFareAndFlight(
-          tx,
-          returnFlight.id,
-          quote.returnFareReleaseId,
-          input.seatsBooked,
-        );
-      }
-
-      await tx.priceQuote.update({
-        where: { id: quote.id },
-        data: { status: "used" },
-      });
-
-      await tx.demandEvent.create({
-        data: {
-          flightId: flight.id,
-          type: "purchase",
-          sessionId: input.sessionId,
-        },
-      });
-      if (returnFlight) {
         await tx.demandEvent.create({
           data: {
-            flightId: returnFlight.id,
+            flightId: flight.id,
             type: "purchase",
             sessionId: input.sessionId,
           },
         });
-      }
+        if (returnFlight) {
+          await tx.demandEvent.create({
+            data: {
+              flightId: returnFlight.id,
+              type: "purchase",
+              sessionId: input.sessionId,
+            },
+          });
+        }
 
-      const bookingRef = makeBookingRef();
-      const ticketNumber = makeTicketNumber();
-      const fareCents = quote.quotedPriceCents * input.seatsBooked;
-      const serviceFeeCents = input.serviceFeeCents ?? 0;
-      const amountCents = input.amountCentsOverride ?? fareCents;
-      const paid = input.invoiceStatus === "paid";
-      const holdExpiresAt =
-        !paid && input.paymentMethod === "bank_transfer"
-          ? bankHoldExpiresAt(new Date(), 48)
-          : null;
-      const invoiceNotes =
-        serviceFeeCents > 0
-          ? `Includes credit card fee ${serviceFeeCents} cents (2.2%).`
-          : holdExpiresAt
-            ? "Awaiting bank transfer · seats held for 48 hours."
-            : "";
+        const bookingRef = makeBookingRef();
+        const ticketNumber = makeTicketNumber();
+        const accessToken = makeAccessToken();
+        const fareCents = quote.quotedPriceCents * input.seatsBooked;
+        const serviceFeeCents = input.serviceFeeCents ?? 0;
+        const amountCents = input.amountCentsOverride ?? fareCents;
+        const paid = input.invoiceStatus === "paid";
+        const holdExpiresAt =
+          !paid && input.paymentMethod === "bank_transfer"
+            ? bankHoldExpiresAt(new Date(), 48)
+            : null;
+        const invoiceNotes =
+          serviceFeeCents > 0
+            ? `Includes credit card fee ${serviceFeeCents} cents (2.2%).`
+            : holdExpiresAt
+              ? "Awaiting bank transfer · seats held for 48 hours."
+              : "";
 
-      const booking = await tx.booking.create({
-        data: {
-          quoteId: quote.id,
-          flightId: flight.id,
-          fareReleaseId: quote.fareReleaseId,
-          fareReleaseName: quote.fareReleaseName,
-          returnFlightId: returnFlight?.id,
-          returnFareReleaseId: quote.returnFareReleaseId,
-          tripType: quote.tripType,
-          passengerName: input.passengerName,
-          email: input.email,
-          passengerPhone: input.passengerPhone ?? "",
-          passportNumber: input.passportNumber ?? "",
-          nationality: input.nationality ?? "",
-          seatsBooked: input.seatsBooked,
-          amountPaidCents: amountCents,
-          serviceFeeCents,
-          fareProductCode: quote.fareProductCode,
-          fareProductName: quote.fareProductName,
-          paymentMethod: input.paymentMethod,
-          source: "online",
-          status: paid ? "confirmed" : "pending_payment",
-          bookingRef,
-          ticketNumber,
-          holdExpiresAt,
-        },
-      });
-
-      const identity = defaultInvoiceIdentity();
-      const routeLabel = buildRouteLabel({
-        origin: flight.origin,
-        destination: flight.destination,
-        tripType: quote.tripType,
-      });
-      const invoice = await tx.invoice.create({
-        data: {
-          invoiceNumber: makeInvoiceNumber(),
-          bookingId: booking.id,
-          paymentMethod: input.paymentMethod,
-          status: input.invoiceStatus,
-          amountCents,
-          fareCents,
-          serviceFeeCents,
-          airfareCents: fareCents,
-          airportTaxesCents: 0,
-          extraBaggageCents: 0,
-          travelInsuranceCents: 0,
-          otherChargesCents: 0,
-          gstRateBps: 1000,
-          gstIncluded: true,
-          accountNumber: identity.accountNumber,
-          businessTpn: identity.businessTpn,
-          routeLabel,
-          seatLabel: "",
-          nameRef: bookingRef.slice(-7),
-          endorsementText: defaultEndorsementText(),
-          fareCalculationLine: defaultFareCalculationLine({
-            origin: flight.origin,
-            destination: flight.destination,
+        const booking = await tx.booking.create({
+          data: {
+            quoteId: quote.id,
+            flightId: flight.id,
+            fareReleaseId: quote.fareReleaseId,
+            fareReleaseName: quote.fareReleaseName,
+            returnFlightId: returnFlight?.id,
+            returnFareReleaseId: quote.returnFareReleaseId,
             tripType: quote.tripType,
-            fareCents,
-          }),
-          currency: "AUD",
-          squarePaymentId: input.squarePaymentId,
-          bankAccountName: input.bankDetails?.accountName,
-          bankBsb: input.bankDetails?.bsb,
-          bankAccountNumber: input.bankDetails?.accountNumber,
-          bankReference:
-            input.paymentMethod === "bank_transfer" ? bookingRef : null,
-          customerName: input.passengerName,
-          customerEmail: input.email,
-          customerPhone: input.passengerPhone ?? "",
-          notes: invoiceNotes,
-          dueAt: holdExpiresAt,
-          paidAt: paid ? new Date() : null,
-          markedPaidByAdmin: false,
-        },
-      });
+            passengerName: input.passengerName,
+            email: input.email,
+            passengerPhone: input.passengerPhone ?? "",
+            passportNumber: input.passportNumber ?? "",
+            nationality: input.nationality ?? "",
+            seatsBooked: input.seatsBooked,
+            amountPaidCents: amountCents,
+            serviceFeeCents,
+            fareProductCode: quote.fareProductCode,
+            fareProductName: quote.fareProductName,
+            paymentMethod: input.paymentMethod,
+            source: "online",
+            status: paid ? "confirmed" : "pending_payment",
+            bookingRef,
+            ticketNumber,
+            accessToken,
+            holdExpiresAt,
+          },
+        });
 
-      return { booking, invoice };
+        const identity = defaultInvoiceIdentity();
+        const routeLabel = buildRouteLabel({
+          origin: flight.origin,
+          destination: flight.destination,
+          tripType: quote.tripType,
+        });
+        const invoice = await tx.invoice.create({
+          data: {
+            invoiceNumber: makeInvoiceNumber(),
+            bookingId: booking.id,
+            paymentMethod: input.paymentMethod,
+            status: input.invoiceStatus,
+            amountCents,
+            fareCents,
+            serviceFeeCents,
+            airfareCents: fareCents,
+            airportTaxesCents: 0,
+            extraBaggageCents: 0,
+            travelInsuranceCents: 0,
+            otherChargesCents: 0,
+            gstRateBps: 1000,
+            gstIncluded: true,
+            accountNumber: identity.accountNumber,
+            businessTpn: identity.businessTpn,
+            routeLabel,
+            seatLabel: "",
+            nameRef: bookingRef.slice(-7),
+            endorsementText: defaultEndorsementText(),
+            fareCalculationLine: defaultFareCalculationLine({
+              origin: flight.origin,
+              destination: flight.destination,
+              tripType: quote.tripType,
+              fareCents,
+            }),
+            currency: "AUD",
+            squarePaymentId: input.squarePaymentId,
+            bankAccountName: input.bankDetails?.accountName,
+            bankBsb: input.bankDetails?.bsb,
+            bankAccountNumber: input.bankDetails?.accountNumber,
+            bankReference:
+              input.paymentMethod === "bank_transfer" ? bookingRef : null,
+            customerName: input.passengerName,
+            customerEmail: input.email,
+            customerPhone: input.passengerPhone ?? "",
+            notes: invoiceNotes,
+            dueAt: holdExpiresAt,
+            paidAt: paid ? new Date() : null,
+            markedPaidByAdmin: false,
+          },
+        });
+
+        return { booking, invoice };
       },
       {
-        // Railway / remote Postgres can be slow under admin polling load.
         maxWait: 15_000,
         timeout: 30_000,
       },
@@ -408,10 +443,7 @@ export async function confirmBooking(input: {
 export async function expireQuoteIfNeeded(quoteId: string) {
   const quote = await prisma.priceQuote.findUnique({ where: { id: quoteId } });
   if (quote && quote.status === "active" && quote.expiresAt <= new Date()) {
-    await prisma.priceQuote.update({
-      where: { id: quoteId },
-      data: { status: "expired" },
-    });
+    await releaseQuoteHold(quoteId);
     return true;
   }
   return false;

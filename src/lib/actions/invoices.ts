@@ -1,7 +1,8 @@
 "use server";
 
+import { requireAdmin } from "@/lib/adminAuth";
+
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import {
@@ -17,16 +18,6 @@ import {
 } from "@/lib/email/bookingMail";
 import { z } from "zod";
 
-const ADMIN_COOKIE = "ts_admin";
-
-async function requireAdmin() {
-  const jar = await cookies();
-  const token = jar.get(ADMIN_COOKIE)?.value;
-  const password = process.env.ADMIN_PASSWORD;
-  if (!password || token !== password) {
-    redirect("/admin?error=Unauthorized");
-  }
-}
 
 function moneyAud(value: FormDataEntryValue | null) {
   const n = Number(String(value ?? "0").replace(/,/g, ""));
@@ -86,18 +77,49 @@ export async function markInvoiceUnpaidAction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) redirect("/admin?tab=invoices&error=Missing+invoice");
 
+  const { bankHoldExpiresAt } = await import("@/lib/branding");
+  const current = await prisma.invoice.findUnique({
+    where: { id },
+    include: { booking: true },
+  });
+  if (!current) redirect("/admin?tab=invoices&error=Invoice+not+found");
+  if (current.booking.paymentMethod !== "bank_transfer") {
+    redirect(
+      "/admin?tab=invoices&error=Only+bank+transfer+invoices+can+be+marked+unpaid",
+    );
+  }
+  if (
+    current.booking.status === "hold_expired" ||
+    current.booking.status === "cancelled"
+  ) {
+    redirect(
+      `/admin?tab=invoices&error=${encodeURIComponent(
+        "Cannot mark unpaid — booking hold expired or cancelled.",
+      )}`,
+    );
+  }
+
+  const holdExpiresAt =
+    current.booking.holdExpiresAt && current.booking.holdExpiresAt > new Date()
+      ? current.booking.holdExpiresAt
+      : bankHoldExpiresAt(new Date(), 48);
+
   await prisma.$transaction(async (tx) => {
-    const invoice = await tx.invoice.update({
+    await tx.invoice.update({
       where: { id },
       data: {
         status: "unpaid",
         paidAt: null,
+        dueAt: holdExpiresAt,
         markedPaidByAdmin: true,
       },
     });
     await tx.booking.update({
-      where: { id: invoice.bookingId },
-      data: { status: "pending_payment" },
+      where: { id: current.bookingId },
+      data: {
+        status: "pending_payment",
+        holdExpiresAt,
+      },
     });
   });
 

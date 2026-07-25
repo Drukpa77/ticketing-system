@@ -150,12 +150,16 @@ model PriceQuote {
   nationality            String      @default("")
   seatsBooked            Int         @default(1)
   privacyAccepted        Boolean     @default(false)
+  /// Soft inventory hold for quote TTL (seats already decremented when true)
+  inventoryHeld          Boolean     @default(false)
+  heldSeats              Int         @default(0)
   createdAt              DateTime    @default(now())
 
   booking Booking?
 
   @@index([sessionId])
   @@index([expiresAt])
+  @@index([status, expiresAt])
 }
 
 model Booking {
@@ -187,6 +191,8 @@ model Booking {
   status              BookingStatus  @default(pending_payment)
   bookingRef          String         @unique
   ticketNumber        String         @unique
+  /// Secret for document/confirmation URLs (unguessable; required in query ?t=)
+  accessToken         String         @unique
   /// Bank-transfer seat hold deadline (48h). Null once confirmed/cancelled/expired.
   holdExpiresAt       DateTime?
   createdAt           DateTime       @default(now())

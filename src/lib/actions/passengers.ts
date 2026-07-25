@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { syncQuoteSeatHold } from "@/lib/booking/inventory";
 import { prisma } from "@/lib/db";
 import { getSessionId } from "@/lib/session";
 import { z } from "zod";
@@ -64,6 +65,17 @@ export async function savePassengerDetailsAction(formData: FormData) {
       `/checkout/${data.quoteId}/passengers?error=${encodeURIComponent(
         "This fare lock has expired — please select fares again",
       )}`,
+    );
+  }
+
+  const hold = await syncQuoteSeatHold(
+    data.quoteId,
+    sessionId,
+    data.seatsBooked,
+  );
+  if (!hold.ok) {
+    redirect(
+      `/checkout/${data.quoteId}/passengers?error=${encodeURIComponent(hold.error)}`,
     );
   }
 

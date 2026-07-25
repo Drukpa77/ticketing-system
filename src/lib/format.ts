@@ -1,8 +1,9 @@
 const AIRPORTS: Record<string, string> = {
+  PER: "Perth",
+  PBH: "Paro",
   SYD: "Sydney",
   MEL: "Melbourne",
   BNE: "Brisbane",
-  PER: "Perth",
   ADL: "Adelaide",
   CNS: "Cairns",
   AKL: "Auckland",

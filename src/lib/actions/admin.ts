@@ -1,7 +1,8 @@
 "use server";
 
+import { requireAdmin } from "@/lib/adminAuth";
+
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import {
@@ -11,16 +12,6 @@ import {
 import { flightFormSchema, parseFareReleasesFromForm } from "@/lib/validation";
 import { z } from "zod";
 
-const ADMIN_COOKIE = "ts_admin";
-
-async function requireAdmin() {
-  const jar = await cookies();
-  const token = jar.get(ADMIN_COOKIE)?.value;
-  const password = process.env.ADMIN_PASSWORD;
-  if (!password || token !== password) {
-    redirect("/admin?error=Unauthorized");
-  }
-}
 
 function parseDateTimeLocal(value: string): Date {
   const d = new Date(value);

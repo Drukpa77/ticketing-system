@@ -14,7 +14,7 @@ export function SiteHeader({ cartCount = 0 }: { cartCount?: number }) {
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
         <Link
           href="/"
-          className="flex min-w-0 items-center gap-2.5 font-[family-name:var(--font-syne)] text-base font-semibold tracking-tight text-foreground sm:gap-3 sm:text-lg"
+          className="flex min-w-0 items-center gap-2.5 font-[family-name:var(--font-syne)] text-base font-semibold tracking-tight text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 sm:gap-3 sm:text-lg"
         >
           <BrandLogo size={36} className="size-8 sm:size-9" />
           <span className="truncate">
@@ -25,7 +25,7 @@ export function SiteHeader({ cartCount = 0 }: { cartCount?: number }) {
         <nav className="flex shrink-0 items-center gap-1 sm:gap-3">
           <Link
             href="/"
-            className={`inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium transition ${
+            className={`inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
               pathname === "/"
                 ? "bg-[linear-gradient(135deg,rgba(37,99,235,0.12),rgba(220,38,38,0.08))] font-semibold text-accent"
                 : "text-muted hover:text-foreground"
@@ -35,18 +35,19 @@ export function SiteHeader({ cartCount = 0 }: { cartCount?: number }) {
           </Link>
           <Link
             href="/admin"
-            className={`inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium transition ${
+            className={`btn-secondary inline-flex min-h-11 items-center gap-2 px-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
               pathname.startsWith("/admin")
-                ? "bg-[linear-gradient(135deg,rgba(37,99,235,0.12),rgba(220,38,38,0.08))] font-semibold text-accent"
-                : "text-muted hover:text-foreground"
+                ? "border-accent text-accent-deep"
+                : ""
             }`}
           >
+            <SignInIcon />
             Admin
           </Link>
           <Link
             href="/cart"
-            aria-label={`Cart${cartCount > 0 ? `, ${cartCount} items` : ""}`}
-            className={`relative inline-flex size-11 items-center justify-center rounded-full border transition ${
+            aria-label={`Cart${cartCount > 0 ? `, ${cartCount} items` : ", empty"}`}
+            className={`relative inline-flex size-11 items-center justify-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
               onCart
                 ? "border-accent text-accent shadow-[0_4px_14px_rgba(37,99,235,0.2)]"
                 : "border-line text-foreground hover:border-accent hover:text-accent"
@@ -62,6 +63,27 @@ export function SiteHeader({ cartCount = 0 }: { cartCount?: number }) {
         </nav>
       </div>
     </header>
+  );
+}
+
+function SignInIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10 17l5-5-5-5M15 12H3"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

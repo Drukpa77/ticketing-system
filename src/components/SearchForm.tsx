@@ -11,7 +11,7 @@ function defaultDate(offsetDays: number): string {
 }
 
 const fieldClass =
-  "w-full min-w-0 max-w-full appearance-none border-0 border-b border-line bg-transparent px-0 py-3 text-base text-foreground outline-none transition focus:border-accent";
+  "w-full min-w-0 max-w-full appearance-none border-0 border-b border-line bg-transparent px-0 py-3 text-base text-foreground outline-none transition focus-visible:border-accent focus-visible:shadow-[0_2px_0_0_var(--accent)]";
 
 export type SearchFormValues = {
   origin?: string;
@@ -39,12 +39,12 @@ export function SearchForm({
   );
   const defaultOrigin =
     initialValues?.origin ??
-    airports.find((a) => a.code === "SYD")?.code ??
+    airports.find((a) => a.code === "PER")?.code ??
     airports[0]?.code ??
     "";
   const defaultDestination =
     initialValues?.destination ??
-    airports.find((a) => a.code === "MEL" && a.code !== defaultOrigin)?.code ??
+    airports.find((a) => a.code === "PBH" && a.code !== defaultOrigin)?.code ??
     airports.find((a) => a.code !== defaultOrigin)?.code ??
     "";
 
@@ -146,7 +146,7 @@ export function SearchForm({
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
           {/* From / To — centered copy with padding clear of swap control */}
           <div className="relative grid grid-cols-1 overflow-hidden rounded-2xl border border-line bg-white sm:grid-cols-2">
-            <label className="relative flex min-h-[5.5rem] min-w-0 cursor-pointer flex-col items-center justify-center px-4 py-3 text-center sm:border-r sm:border-line sm:pr-10">
+            <label className="relative flex min-h-[5.5rem] min-w-0 cursor-pointer flex-col items-center justify-center px-4 py-3 pb-7 text-center focus-within:bg-[linear-gradient(180deg,rgba(37,99,235,0.05),transparent)] sm:border-r sm:border-line sm:pb-3 sm:pr-10">
               <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
                 From
               </span>
@@ -188,12 +188,12 @@ export function SearchForm({
               type="button"
               onClick={swapAirports}
               aria-label="Swap origin and destination"
-              className="absolute left-1/2 top-1/2 z-20 hidden size-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-white text-accent-deep shadow-sm transition hover:border-accent hover:text-accent sm:inline-flex"
+              className="absolute left-1/2 top-1/2 z-20 inline-flex size-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-white text-accent-deep shadow-sm transition hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               <SwapIcon />
             </button>
 
-            <label className="relative flex min-h-[5.5rem] min-w-0 cursor-pointer flex-col items-center justify-center border-t border-line px-4 py-3 text-center sm:border-t-0 sm:pl-10">
+            <label className="relative flex min-h-[5.5rem] min-w-0 cursor-pointer flex-col items-center justify-center border-t border-line px-4 py-3 pt-7 text-center focus-within:bg-[linear-gradient(0deg,rgba(37,99,235,0.05),transparent)] sm:border-t-0 sm:pt-3 sm:pl-10">
               <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
                 To
               </span>

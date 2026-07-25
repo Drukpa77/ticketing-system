@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { InvoiceDeliveryActions } from "@/components/checkout/InvoiceDeliveryActions";
 import { getBrand } from "@/lib/branding";
+import { canAccessBooking, withAccessToken } from "@/lib/documentAccess";
 import { prisma } from "@/lib/db";
 import { airportLabel, formatFlightTime } from "@/lib/format";
 import { formatAud } from "@/lib/pricing";
@@ -11,7 +12,7 @@ export default async function ConfirmationPage({
   searchParams,
 }: {
   params: Promise<{ bookingId: string }>;
-  searchParams: Promise<{ invoice?: string; emailed?: string }>;
+  searchParams: Promise<{ invoice?: string; emailed?: string; t?: string }>;
 }) {
   const { bookingId } = await params;
   const query = await searchParams;
@@ -21,6 +22,25 @@ export default async function ConfirmationPage({
     include: { flight: true, returnFlight: true, invoice: true, quote: true },
   });
   if (!booking) notFound();
+
+  const allowed = await canAccessBooking({
+    accessToken: booking.accessToken,
+    quoteSessionId: booking.quote?.sessionId,
+    providedToken: query.t,
+  });
+  if (!allowed) notFound();
+
+  const token = booking.accessToken;
+  const eticketHref = withAccessToken(
+    `/documents/eticket/${encodeURIComponent(booking.bookingRef)}`,
+    token,
+  );
+  const invoiceHref = booking.invoice
+    ? withAccessToken(
+        `/documents/invoice/${encodeURIComponent(booking.invoice.invoiceNumber)}`,
+        token,
+      )
+    : null;
 
   const isRound = booking.tripType === "round_trip" && booking.returnFlight;
   const invoice = booking.invoice;
@@ -182,6 +202,7 @@ export default async function ConfirmationPage({
                 <InvoiceDeliveryActions
                   bookingId={booking.id}
                   invoiceNumber={invoice.invoiceNumber}
+                  invoiceHref={invoiceHref!}
                   customerEmail={booking.email}
                   unpaid
                   initialEmailed={justCreatedInvoice ? initialEmailed : null}
@@ -191,21 +212,21 @@ export default async function ConfirmationPage({
           ) : (
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <Link
-                href={`/documents/eticket/${encodeURIComponent(booking.bookingRef)}`}
+                href={eticketHref}
                 className={`${paid ? "btn-cta" : "btn-secondary"} min-h-11 px-4 py-2.5 text-sm`}
                 target="_blank"
               >
                 View travel document
               </Link>
-              {invoice && (
+              {invoiceHref ? (
                 <Link
-                  href={`/documents/invoice/${encodeURIComponent(invoice.invoiceNumber)}`}
+                  href={invoiceHref}
                   className="btn-secondary min-h-11 px-4 py-2.5 text-sm"
                   target="_blank"
                 >
                   View airfare invoice
                 </Link>
-              )}
+              ) : null}
             </div>
           )}
 
@@ -310,13 +331,19 @@ export default async function ConfirmationPage({
                 </p>
               ) : (
                 <div className="mt-5">
-                  <Link
-                    href={`/documents/eticket/${encodeURIComponent(booking.bookingRef)}`}
-                    className="btn-secondary min-h-11 px-4 py-2.5 text-sm"
-                    target="_blank"
-                  >
-                    Preview travel document
-                  </Link>
+                  {paid ? (
+                    <Link
+                      href={eticketHref}
+                      className="btn-secondary min-h-11 px-4 py-2.5 text-sm"
+                      target="_blank"
+                    >
+                      View travel document
+                    </Link>
+                  ) : (
+                    <p className="text-sm text-muted">
+                      Your e-ticket is issued after payment is confirmed.
+                    </p>
+                  )}
                 </div>
               )}
             </div>

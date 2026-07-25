@@ -4,6 +4,7 @@ import { renderTravelDocumentHtml as renderTravelDocumentHtmlImpl } from "@/lib/
 export type BookingDocumentData = {
   bookingRef: string;
   ticketNumber: string;
+  accessToken: string;
   createdAt: Date;
   status: string;
   passengerName: string;

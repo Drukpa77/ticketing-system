@@ -23,6 +23,8 @@ export type FlightSearchParams = {
   outboundId?: string;
   passengers?: string;
   cabinClass?: string;
+  /** When "1", list every flight in the search window (not only the selected day). */
+  allTickets?: string;
 };
 
 function parsePassengers(raw?: string) {
@@ -81,17 +83,17 @@ export async function getSearchAirports(): Promise<AirportOption[]> {
   const codes = flights.flatMap((f) => [f.origin, f.destination]);
   const options = buildAirportOptions(codes);
   if (options.length > 0) return options;
-  return buildAirportOptions(["SYD", "MEL", "BNE", "PER"]);
+  return buildAirportOptions(["PER", "PBH"]);
 }
 
 export async function resolveSearchInput(raw: FlightSearchParams) {
   const airports = await getSearchAirports();
   const defaultOrigin =
-    airports.find((a) => a.code === "SYD")?.code ?? airports[0]?.code ?? "SYD";
+    airports.find((a) => a.code === "PER")?.code ?? airports[0]?.code ?? "PER";
   const defaultDestination =
-    airports.find((a) => a.code === "MEL" && a.code !== defaultOrigin)?.code ??
+    airports.find((a) => a.code === "PBH" && a.code !== defaultOrigin)?.code ??
     airports.find((a) => a.code !== defaultOrigin)?.code ??
-    "MEL";
+    "PBH";
 
   const candidate = {
     origin: raw.origin || defaultOrigin,
@@ -135,6 +137,7 @@ export async function renderFlightSearch(raw: FlightSearchParams) {
   const isRoundTrip = tripType === "round_trip";
   const passengers = parsePassengers(raw.passengers);
   const cabinClass = parseCabinClass(raw.cabinClass);
+  const allTickets = raw.allTickets === "1" || raw.allTickets === "true";
   const { economy: economyFromCents, business: businessFromCents } =
     await getCharterCabinFromPrices();
 
@@ -161,6 +164,78 @@ export async function renderFlightSearch(raw: FlightSearchParams) {
       fareReleaseName: null as string | null,
       farePriced: cents > 0,
     };
+  }
+
+  /** Full catalogue — every active flight, route, cabin, and date. */
+  if (allTickets) {
+    const dayStart = new Date();
+    dayStart.setUTCHours(0, 0, 0, 0);
+
+    const flights = await prisma.flight.findMany({
+      where: {
+        active: true,
+        departureAt: { gte: dayStart },
+      },
+      orderBy: { departureAt: "asc" },
+    });
+
+    const priced = flights.map((flight) => ({
+      flight,
+      price: catalogPrice(flight),
+    }));
+
+    const centerDate =
+      priced[0] != null ? dayKey(priced[0].flight.departureAt) : date;
+    const dayFares = await buildDayFares(
+      priced.map(({ flight, price }) => ({
+        departureAt: flight.departureAt,
+        price,
+      })),
+      centerDate,
+      0,
+      60,
+    );
+
+    // One result row per inventory flight. Same schedule with both cabins
+    // (economy + business rows in the DB) merges into a single card.
+    const grouped = groupFlightResults(
+      priced.map(({ flight, price }) => ({
+        flight,
+        price,
+        href: `/flights/${flight.id}`,
+        ctaLabel: "Select",
+      })),
+    );
+
+    const baseParams: Record<string, string> = {
+      origin,
+      destination,
+      date,
+      tripType,
+      passengers: String(passengers),
+      cabinClass,
+    };
+    if (returnDate) baseParams.returnDate = returnDate;
+
+    return (
+      <FlightResultsClient
+        origin={origin}
+        destination={destination}
+        date={date}
+        returnDate={returnDate}
+        tripType={tripType}
+        passengers={passengers}
+        cabinClass={cabinClass}
+        allTickets
+        summaryTitle="All available tickets"
+        stripDate={centerDate}
+        dateParam="date"
+        dayFares={dayFares}
+        baseParams={baseParams}
+        flights={grouped}
+        airports={airports}
+      />
+    );
   }
 
   if (isRoundTrip && outboundId) {
@@ -292,6 +367,7 @@ export async function renderFlightSearch(raw: FlightSearchParams) {
         tripType="round_trip"
         passengers={passengers}
         cabinClass={cabinClass}
+        allTickets={allTickets}
         summaryTitle="Choose your return"
         stripDate={activeReturnDate}
         dateParam="returnDate"
@@ -375,6 +451,7 @@ export async function renderFlightSearch(raw: FlightSearchParams) {
       tripType={tripType}
       passengers={passengers}
       cabinClass={cabinClass}
+      allTickets={allTickets}
       summaryTitle={isRoundTrip ? "Choose outbound" : undefined}
       stripDate={date}
       dateParam="date"

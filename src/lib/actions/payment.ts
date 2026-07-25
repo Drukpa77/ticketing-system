@@ -1,9 +1,10 @@
 "use server";
 
-import { randomUUID } from "crypto";
+import { createHash } from "crypto";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { redirect } from "next/navigation";
 import { confirmBooking } from "@/lib/booking/confirmBooking";
+import { withAccessToken } from "@/lib/documentAccess";
 import {
   sendBankTransferBundle,
   sendBookingConfirmationBundle,
@@ -16,6 +17,7 @@ import { calculateCardServiceFee } from "@/lib/payments/fees";
 import {
   chargeCardPayment,
   isSquareConfigured,
+  refundCardPayment,
 } from "@/lib/payments/square";
 import { getSessionId } from "@/lib/session";
 import { bookingSchema } from "@/lib/validation";
@@ -38,6 +40,20 @@ const cardPaymentSchema = bookingSchema.extend({
 function toErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) return error.message;
   return fallback;
+}
+
+function cardIdempotencyKey(opts: {
+  quoteId: string;
+  seatsBooked: number;
+  totalCents: number;
+  sessionId: string;
+}) {
+  return createHash("sha256")
+    .update(
+      `card:${opts.quoteId}:${opts.seatsBooked}:${opts.totalCents}:${opts.sessionId}`,
+    )
+    .digest("hex")
+    .slice(0, 45);
 }
 
 export async function payWithCardAction(input: {
@@ -74,29 +90,51 @@ export async function payWithCardAction(input: {
     }
 
     const sessionId = await getSessionId();
+    if (!sessionId || sessionId === "anonymous") {
+      return { error: "Missing browser session — refresh and try again" };
+    }
+
     const { prisma } = await import("@/lib/db");
-    const amountPreview = await prisma.priceQuote.findUnique({
+    const quote = await prisma.priceQuote.findUnique({
       where: { id: parsed.data.quoteId },
-      select: { quotedPriceCents: true, status: true, expiresAt: true },
+      select: {
+        quotedPriceCents: true,
+        status: true,
+        expiresAt: true,
+        sessionId: true,
+        inventoryHeld: true,
+      },
     });
 
-    if (!amountPreview || amountPreview.status !== "active") {
+    if (!quote || quote.status !== "active") {
       return { error: "Quote is no longer available" };
     }
-    if (amountPreview.expiresAt <= new Date()) {
+    if (quote.sessionId !== sessionId) {
+      return { error: "Quote does not belong to this session" };
+    }
+    if (quote.expiresAt <= new Date()) {
       return { error: "Quote has expired — please book again" };
+    }
+    if (!quote.inventoryHeld) {
+      return { error: "Seat hold expired — please select fares again" };
     }
 
     const fareCents =
-      amountPreview.quotedPriceCents * parsed.data.seatsBooked;
+      quote.quotedPriceCents * parsed.data.seatsBooked;
     const { totalCents, serviceFeeCents } = calculateCardServiceFee(fareCents);
+    const idempotencyKey = cardIdempotencyKey({
+      quoteId: parsed.data.quoteId,
+      seatsBooked: parsed.data.seatsBooked,
+      totalCents,
+      sessionId,
+    });
 
     let squarePaymentId: string;
     try {
       const payment = await chargeCardPayment({
         sourceId: parsed.data.sourceId,
         amountCents: totalCents,
-        idempotencyKey: randomUUID(),
+        idempotencyKey,
         referenceId: parsed.data.quoteId,
         note: `Flight booking ${parsed.data.passengerName} (incl. 2.2% credit card fee)`,
         buyerEmail: parsed.data.email,
@@ -124,8 +162,20 @@ export async function payWithCardAction(input: {
     });
 
     if (!result.ok) {
+      try {
+        await refundCardPayment({
+          paymentId: squarePaymentId,
+          idempotencyKey: `refund-${idempotencyKey}`,
+          amountCents: totalCents,
+        });
+      } catch (refundError) {
+        console.error("auto-refund failed", refundError);
+        return {
+          error: `${result.error}. Card was charged (${squarePaymentId}) but booking failed — contact support; refund may need manual processing.`,
+        };
+      }
       return {
-        error: `${result.error}. Your card may have been charged — contact support with Square payment ${squarePaymentId}.`,
+        error: `${result.error}. Your card charge was automatically refunded.`,
       };
     }
 
@@ -135,7 +185,12 @@ export async function payWithCardAction(input: {
       console.error("confirmation email failed", err);
     }
 
-    redirect(`/confirmation/${result.booking.id}`);
+    redirect(
+      withAccessToken(
+        `/confirmation/${result.booking.id}`,
+        result.booking.accessToken,
+      ),
+    );
   } catch (error) {
     if (isRedirectError(error)) throw error;
     console.error("payWithCardAction", error);
@@ -174,10 +229,12 @@ export async function payWithBankTransferAction(
     }
 
     const sessionId = await getSessionId();
+    if (!sessionId || sessionId === "anonymous") {
+      return fail("Missing browser session — refresh and try again");
+    }
+
     const bank = getBankTransferDetails();
 
-    // Creates an unpaid invoice + pending booking (no charge). Admin confirms
-    // after the customer emails a payment screenshot.
     const result = await confirmBooking({
       ...parsed.data,
       passengerPhone: parsed.data.passengerPhone || "",
@@ -205,7 +262,10 @@ export async function payWithBankTransferAction(
     }
 
     redirect(
-      `/confirmation/${result.booking.id}?invoice=1&emailed=${emailed}`,
+      withAccessToken(
+        `/confirmation/${result.booking.id}?invoice=1&emailed=${emailed}`,
+        result.booking.accessToken,
+      ),
     );
   } catch (error) {
     if (isRedirectError(error)) throw error;

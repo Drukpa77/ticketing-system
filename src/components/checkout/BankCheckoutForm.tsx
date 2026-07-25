@@ -1,21 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { payWithBankTransferAction } from "@/lib/actions/payment";
 import { formatAud } from "@/lib/pricing";
-
-const fieldClass =
-  "w-full border-0 border-b border-line bg-transparent py-3 text-sm text-foreground outline-none transition focus:border-accent";
 
 type BankCheckoutFormProps = {
   quoteId: string;
   maxSeats: number;
   unitPriceCents: number;
   paymentProofEmail: string;
-  initialPassenger?: {
-    passengerName?: string;
-    email?: string;
+  initialPassenger: {
+    passengerName: string;
+    email: string;
     passengerPhone?: string;
     passportNumber?: string;
     nationality?: string;
@@ -37,36 +34,42 @@ export function BankCheckoutForm({
   initialPassenger,
   bankPreview,
 }: BankCheckoutFormProps) {
-  const [passengerName, setPassengerName] = useState(
-    initialPassenger?.passengerName ?? "",
-  );
-  const [email, setEmail] = useState(initialPassenger?.email ?? "");
-  const [passengerPhone, setPassengerPhone] = useState(
-    initialPassenger?.passengerPhone ?? "",
-  );
-  const [passportNumber, setPassportNumber] = useState(
-    initialPassenger?.passportNumber ?? "",
-  );
-  const [nationality, setNationality] = useState(
-    initialPassenger?.nationality ?? "",
-  );
-  const [seatsBooked, setSeatsBooked] = useState(
-    initialPassenger?.seatsBooked ?? 1,
-  );
   const [state, action, pending] = useActionState(
     payWithBankTransferAction,
     null,
   );
 
-  const seatMax = Math.min(9, Math.max(1, maxSeats));
+  const seatsBooked = Math.min(
+    Math.max(1, initialPassenger.seatsBooked ?? 1),
+    Math.min(9, Math.max(1, maxSeats)),
+  );
   const totalCents = unitPriceCents * seatsBooked;
-  const passengerOk =
-    passengerName.trim().length >= 2 &&
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   return (
     <form action={action} className="space-y-8">
       <input type="hidden" name="quoteId" value={quoteId} />
+      <input
+        type="hidden"
+        name="passengerName"
+        value={initialPassenger.passengerName}
+      />
+      <input type="hidden" name="email" value={initialPassenger.email} />
+      <input
+        type="hidden"
+        name="passengerPhone"
+        value={initialPassenger.passengerPhone ?? ""}
+      />
+      <input
+        type="hidden"
+        name="passportNumber"
+        value={initialPassenger.passportNumber ?? ""}
+      />
+      <input
+        type="hidden"
+        name="nationality"
+        value={initialPassenger.nationality ?? ""}
+      />
+      <input type="hidden" name="seatsBooked" value={seatsBooked} />
 
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
@@ -82,101 +85,41 @@ export function BankCheckoutForm({
         </p>
       </div>
 
-      <div className="grid gap-5">
-        <label className="space-y-1 text-sm">
-          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-            Full name
-          </span>
-          <input
-            name="passengerName"
-            value={passengerName}
-            onChange={(e) => setPassengerName(e.target.value)}
-            className={fieldClass}
-            placeholder="Alex Morgan"
-            autoComplete="name"
-            required
-          />
-        </label>
-        <label className="space-y-1 text-sm">
-          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-            Email for invoice
-          </span>
-          <input
-            name="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={fieldClass}
-            placeholder="you@email.com"
-            autoComplete="email"
-            required
-          />
-        </label>
-        <label className="space-y-1 text-sm">
-          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-            Phone
-          </span>
-          <input
-            name="passengerPhone"
-            value={passengerPhone}
-            onChange={(e) => setPassengerPhone(e.target.value)}
-            className={fieldClass}
-            placeholder="+61 412 345 678"
-            autoComplete="tel"
-          />
-        </label>
-        <label className="space-y-1 text-sm">
-          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-            Passport number
-          </span>
-          <input
-            name="passportNumber"
-            value={passportNumber}
-            onChange={(e) => setPassportNumber(e.target.value)}
-            className={fieldClass}
-            placeholder="N1234567"
-          />
-        </label>
-        <label className="space-y-1 text-sm">
-          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-            Nationality
-          </span>
-          <input
-            name="nationality"
-            value={nationality}
-            onChange={(e) => setNationality(e.target.value)}
-            className={fieldClass}
-            placeholder="Australian"
-          />
-        </label>
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <label className="space-y-1 text-sm">
-            <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-              Seats
-            </span>
-            <input
-              name="seatsBooked"
-              type="number"
-              min={1}
-              max={seatMax}
-              value={seatsBooked}
-              onChange={(e) =>
-                setSeatsBooked(
-                  Math.min(seatMax, Math.max(1, Number(e.target.value) || 1)),
-                )
-              }
-              className={`${fieldClass} w-28`}
-              required
-            />
-          </label>
-          <div className="text-right">
-            <p className="text-xs uppercase tracking-[0.14em] text-muted">
-              Amount due
+      <div className="rounded-2xl border border-line bg-surface/60 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+              Passenger details
             </p>
-            <p className="font-[family-name:var(--font-syne)] text-3xl font-semibold">
-              {formatAud(totalCents)}
+            <p className="mt-2 font-semibold text-foreground">
+              {initialPassenger.passengerName}
+            </p>
+            <p className="mt-1 break-all text-sm text-muted">
+              {initialPassenger.email}
+            </p>
+            {initialPassenger.passengerPhone ? (
+              <p className="mt-1 text-sm text-muted">
+                {initialPassenger.passengerPhone}
+              </p>
+            ) : null}
+            <p className="mt-3 text-sm text-muted">
+              {seatsBooked} seat{seatsBooked === 1 ? "" : "s"}
             </p>
           </div>
+          <Link
+            href={`/checkout/${quoteId}/passengers`}
+            className="text-sm font-semibold text-accent underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+          >
+            Edit details
+          </Link>
+        </div>
+        <div className="mt-4 flex items-end justify-between gap-4 border-t border-line pt-4">
+          <p className="text-xs uppercase tracking-[0.14em] text-muted">
+            Amount due
+          </p>
+          <p className="font-[family-name:var(--font-syne)] text-3xl font-semibold">
+            {formatAud(totalCents)}
+          </p>
         </div>
       </div>
 
@@ -215,7 +158,7 @@ export function BankCheckoutForm({
             Email a screenshot of the successful transfer to{" "}
             <a
               href={`mailto:${paymentProofEmail}`}
-              className="font-semibold text-accent underline"
+              className="font-semibold text-accent underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               {paymentProofEmail}
             </a>{" "}
@@ -229,14 +172,17 @@ export function BankCheckoutForm({
       </div>
 
       {state?.error ? (
-        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <p
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+        >
           {state.error}
         </p>
       ) : null}
 
       <button
         type="submit"
-        disabled={pending || !passengerOk}
+        disabled={pending}
         className="btn-cta w-full rounded-xl py-3.5 text-sm tracking-wide"
       >
         {pending
@@ -251,7 +197,7 @@ export function BankCheckoutForm({
         Prefer card?{" "}
         <Link
           href={`/checkout/${quoteId}/card`}
-          className="font-medium text-accent underline"
+          className="font-medium text-accent underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
           Pay by card
         </Link>

@@ -3,6 +3,7 @@ import {
   formatDocDateTime,
   getBrand,
 } from "@/lib/branding";
+import { withAccessToken } from "@/lib/documentAccess";
 import type { BookingDocumentData } from "@/lib/documents/templates";
 
 function esc(value: string) {
@@ -21,9 +22,15 @@ export function bookingConfirmationEmail(data: BookingDocumentData) {
       ? ` · Return ${data.returnFlight.origin} → ${data.returnFlight.destination}`
       : ""
   }`;
-  const travelUrl = `${brand.siteUrl}/documents/eticket/${encodeURIComponent(data.bookingRef)}`;
+  const travelUrl = withAccessToken(
+    `${brand.siteUrl}/documents/eticket/${encodeURIComponent(data.bookingRef)}`,
+    data.accessToken,
+  );
   const invoiceUrl = data.invoice
-    ? `${brand.siteUrl}/documents/invoice/${encodeURIComponent(data.invoice.invoiceNumber)}`
+    ? withAccessToken(
+        `${brand.siteUrl}/documents/invoice/${encodeURIComponent(data.invoice.invoiceNumber)}`,
+        data.accessToken,
+      )
     : brand.siteUrl;
 
   const html = `
@@ -77,9 +84,11 @@ export function bankTransferEmail(data: BookingDocumentData) {
   const amount = data.invoice?.amountCents ?? data.amountPaidCents;
   const reference = data.invoice?.bankReference || data.bookingRef;
   const invoiceUrl = data.invoice
-    ? `${brand.siteUrl}/documents/invoice/${encodeURIComponent(data.invoice.invoiceNumber)}`
+    ? withAccessToken(
+        `${brand.siteUrl}/documents/invoice/${encodeURIComponent(data.invoice.invoiceNumber)}`,
+        data.accessToken,
+      )
     : brand.siteUrl;
-  const travelUrl = `${brand.siteUrl}/documents/eticket/${encodeURIComponent(data.bookingRef)}`;
   const due = data.invoice?.dueAt
     ? formatDocDateTime(data.invoice.dueAt)
     : "the due date on your invoice";
@@ -101,8 +110,7 @@ export function bankTransferEmail(data: BookingDocumentData) {
     <strong>Departure:</strong> ${esc(formatDocDateTime(data.flight.departureAt))}<br/>
     <strong>Amount Due:</strong> ${esc(formatAud(amount))}</p>
     <p>Please transfer the total amount using the reference:<br/><strong>${esc(reference)}</strong></p>
-    <p><a href="${invoiceUrl}">View Airfare Invoice &amp; bank details</a><br/>
-    <a href="${travelUrl}">Preview E-Ticket / Itinerary</a></p>
+    <p><a href="${invoiceUrl}">View Airfare Invoice &amp; bank details</a></p>
     <h2 style="font-size:14px;letter-spacing:0.12em;text-transform:uppercase;color:#2563EB;border-bottom:1px solid #E2E8F0;padding-bottom:6px;margin-top:24px">Transaction instructions</h2>
     <p>No online payment was taken. After you complete the bank transfer, email a <strong>screenshot of the payment</strong> to <a href="mailto:${esc(brand.paymentProofEmail)}"><strong>${esc(brand.paymentProofEmail)}</strong></a> so we can confirm your booking and send your e-ticket.</p>
     <p>Your seats are held for <strong>48 hours</strong>. Once payment has been received and verified, we will email your booking confirmation and electronic ticket.</p>
@@ -122,7 +130,6 @@ Payment reference: ${reference}
 After transferring, email a payment screenshot to ${brand.paymentProofEmail} so we can confirm your booking.
 
 Airfare invoice: ${invoiceUrl}
-Travel document preview: ${travelUrl}
 
 Kind regards,
 ${brand.reservationsTeam}

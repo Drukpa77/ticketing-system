@@ -115,3 +115,34 @@ export async function chargeCardPayment(input: {
     throw error;
   }
 }
+
+export async function refundCardPayment(input: {
+  paymentId: string;
+  idempotencyKey: string;
+  amountCents: number;
+}) {
+  const client = getSquareClient();
+  try {
+    const response = await client.refunds.refundPayment({
+      idempotencyKey: input.idempotencyKey,
+      paymentId: input.paymentId,
+      amountMoney: {
+        amount: BigInt(input.amountCents),
+        currency: "AUD",
+      },
+    });
+    if (!response.refund?.id) {
+      throw new Error("Square did not return a refund id");
+    }
+    return { refundId: response.refund.id };
+  } catch (error) {
+    if (error instanceof SquareError) {
+      const detail =
+        error.errors?.[0]?.detail ||
+        error.errors?.[0]?.code ||
+        error.message;
+      throw new Error(detail);
+    }
+    throw error;
+  }
+}

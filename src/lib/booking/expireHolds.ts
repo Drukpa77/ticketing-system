@@ -1,4 +1,5 @@
 import { formatDocDateTime, getBrand } from "@/lib/branding";
+import { releaseQuoteHold } from "@/lib/booking/inventory";
 import { formatAud } from "@/lib/pricing";
 import type { BookingDocumentData } from "@/lib/documents/templates";
 import { sendEmail } from "@/lib/email/send";
@@ -159,4 +160,28 @@ export async function expireStaleBankHolds() {
   }
 
   return { processed: results.length, results };
+}
+
+/** Release soft-held seats on expired active quotes. */
+export async function expireStaleQuotes() {
+  const now = new Date();
+  const stale = await prisma.priceQuote.findMany({
+    where: {
+      status: "active",
+      expiresAt: { lte: now },
+    },
+    select: { id: true },
+    take: 100,
+  });
+
+  let released = 0;
+  for (const row of stale) {
+    try {
+      await releaseQuoteHold(row.id);
+      released += 1;
+    } catch (error) {
+      console.error("expire quote hold failed", row.id, error);
+    }
+  }
+  return { scanned: stale.length, released };
 }
