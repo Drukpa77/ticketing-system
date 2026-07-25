@@ -82,7 +82,7 @@ export function FlightResultsClient({
   }, [flights, nonstopOnly, sortBy]);
 
   return (
-    <main className="min-h-[calc(100svh-4rem)] bg-background">
+    <main className="page-shell bg-background pb-safe">
       <SearchSummaryBar
         origin={origin}
         destination={destination}
@@ -103,11 +103,8 @@ export function FlightResultsClient({
       {outboundSummary ? (
         <div className="border-b border-line bg-white">
           <div className="mx-auto w-full max-w-6xl px-4 py-3 text-sm text-muted sm:px-6">
-            <span className="font-semibold text-foreground">
-              Outbound selected
-            </span>
-            <span className="mx-2 text-line">·</span>
-            {outboundSummary}
+            <p className="font-semibold text-foreground">Outbound selected</p>
+            <p className="mt-1 break-words">{outboundSummary}</p>
           </div>
         </div>
       ) : null}
@@ -123,9 +120,9 @@ export function FlightResultsClient({
         lowestFareCents={globalLowestFareCents}
       />
 
-      <div className="mx-auto w-full max-w-6xl">
+      <div className="mx-auto w-full max-w-6xl px-0 md:px-6 md:py-5">
         {visible.length === 0 ? (
-          <div className="m-4 rounded-2xl border border-dashed border-line bg-white px-6 py-14 text-center sm:m-6">
+          <div className="m-4 rounded-2xl border border-dashed border-line bg-white px-6 py-14 text-center sm:m-0">
             <p className="font-[family-name:var(--font-syne)] text-xl font-semibold">
               No flights found
             </p>
@@ -134,7 +131,7 @@ export function FlightResultsClient({
             </p>
           </div>
         ) : (
-          <div className="overflow-hidden border-x border-line bg-white sm:mx-0 sm:rounded-none md:mx-6 md:my-5 md:rounded-2xl md:border md:shadow-[0_12px_40px_rgba(16,35,28,0.06)]">
+          <div className="overflow-x-clip border-y border-line bg-white md:rounded-2xl md:border md:shadow-[0_12px_40px_rgba(16,35,28,0.06)]">
             {visible.map((flight) => (
               <FlightResultCard
                 key={flight.key}

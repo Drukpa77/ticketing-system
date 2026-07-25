@@ -8,27 +8,35 @@ import { getSessionId } from "@/lib/session";
 export async function startCheckoutAction(
   flightId: string,
   returnFlightId?: string,
+  fareProductId?: string,
 ) {
   const sessionId = await getSessionId();
   const result = await createPriceQuote({
     flightId,
     returnFlightId,
     sessionId,
+    fareProductId,
   });
   if (!result.ok) {
     return { error: result.error };
   }
-  redirect(`/checkout/${result.quote.id}`);
+  redirect("/cart");
 }
 
 export async function startCheckoutFormAction(formData: FormData) {
   try {
     const flightId = String(formData.get("flightId") ?? "").trim();
     const returnRaw = String(formData.get("returnFlightId") ?? "").trim();
+    const fareProductId = String(formData.get("fareProductId") ?? "").trim();
     const returnFlightId = returnRaw || undefined;
 
     if (!flightId) {
       redirect("/?error=Missing+flight");
+    }
+    if (!fareProductId) {
+      redirect(
+        `/flights/${flightId}?error=${encodeURIComponent("Please select a fare")}`,
+      );
     }
 
     const sessionId = await getSessionId();
@@ -36,6 +44,7 @@ export async function startCheckoutFormAction(formData: FormData) {
       flightId,
       returnFlightId,
       sessionId,
+      fareProductId,
     });
 
     if (!result.ok) {
@@ -44,7 +53,7 @@ export async function startCheckoutFormAction(formData: FormData) {
       );
     }
 
-    redirect(`/checkout/${result.quote.id}`);
+    redirect(`/cart`);
   } catch (error) {
     if (isRedirectError(error)) throw error;
     console.error("startCheckoutFormAction", error);

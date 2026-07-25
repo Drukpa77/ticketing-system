@@ -8,6 +8,9 @@
   --surface: #f4f8f6;
   --line: #c5d5cc;
   --muted: #4d6359;
+  --header-h: 4.5rem;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
 }
 
 @theme inline {
@@ -23,10 +26,18 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  overflow-x: clip;
+  min-width: 0;
 }
 
 input,
@@ -34,6 +45,23 @@ button,
 select,
 textarea {
   border-radius: 0;
+  max-width: 100%;
+}
+
+/* Native date inputs often overflow on iOS without this. */
+input[type="date"],
+input[type="datetime-local"],
+select {
+  min-width: 0;
+  width: 100%;
+}
+
+.page-shell {
+  min-height: calc(100svh - var(--header-h));
+}
+
+.pb-safe {
+  padding-bottom: max(1rem, var(--safe-bottom));
 }
 
 @keyframes home-rise {

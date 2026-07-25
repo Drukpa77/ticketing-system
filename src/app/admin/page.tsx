@@ -4,6 +4,7 @@ import { AdminDashboard } from "@/components/AdminDashboard";
 import { getFlightPriceAnalytics } from "@/lib/analytics/pricingAnalytics";
 import { expireStaleBankHolds } from "@/lib/booking/expireHolds";
 import { prisma } from "@/lib/db";
+import { listAllCharterFareProductsAdmin } from "@/lib/fares/charter";
 import { adminLoginSchema } from "@/lib/validation";
 
 const ADMIN_COOKIE = "ts_admin";
@@ -18,11 +19,19 @@ async function isAdminAuthed() {
 
 function parseTab(
   value?: string,
-): "analytics" | "flights" | "form" | "bookings" | "invoices" | undefined {
+):
+  | "analytics"
+  | "flights"
+  | "form"
+  | "fares"
+  | "bookings"
+  | "invoices"
+  | undefined {
   if (
     value === "analytics" ||
     value === "flights" ||
     value === "form" ||
+    value === "fares" ||
     value === "bookings" ||
     value === "invoices"
   ) {
@@ -137,27 +146,29 @@ export default async function AdminPage({
     console.error("expire stale holds on admin load failed", err);
   }
 
-  const [flights, bookings, invoices, analytics] = await Promise.all([
-    prisma.flight.findMany({
-      orderBy: [{ active: "desc" }, { departureAt: "asc" }],
-      include: { fareReleases: { orderBy: { sortOrder: "asc" } } },
-    }),
-    prisma.booking.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      include: {
-        flight: true,
-        returnFlight: true,
-        invoice: { select: { id: true, status: true } },
-      },
-    }),
-    prisma.invoice.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      include: { booking: { select: { bookingRef: true } } },
-    }),
-    getFlightPriceAnalytics(),
-  ]);
+  const [flights, bookings, invoices, analytics, charterFares] =
+    await Promise.all([
+      prisma.flight.findMany({
+        orderBy: [{ active: "desc" }, { departureAt: "asc" }],
+        include: { fareReleases: { orderBy: { sortOrder: "asc" } } },
+      }),
+      prisma.booking.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        include: {
+          flight: true,
+          returnFlight: true,
+          invoice: { select: { id: true, status: true } },
+        },
+      }),
+      prisma.invoice.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        include: { booking: { select: { bookingRef: true } } },
+      }),
+      getFlightPriceAnalytics(),
+      listAllCharterFareProductsAdmin(),
+    ]);
 
   const savedMessage =
     params.saved === "added"
@@ -173,18 +184,24 @@ export default async function AdminPage({
               : params.saved === "deleted"
                 ? "Flight deleted permanently."
                 : params.saved === "invoice-paid"
-                  ? "Invoice marked paid. Confirmation email with e-ticket sent."
+                  ? "Invoice marked paid. Confirmation email with both documents sent."
                   : params.saved === "invoice-unpaid"
                     ? "Invoice marked unpaid."
                     : params.saved === "invoice-sent"
-                      ? "Email sent using the Drukair booking template (or marked sent if email is not configured)."
-                      : params.saved === "booking-paid"
-                        ? "Bank transfer marked paid. Confirmation email with e-ticket sent."
-                        : params.saved === "booking-unpaid"
-                          ? "Booking marked unpaid — 48h hold restored."
-                          : params.saved === "walk-in"
-                            ? "Walk-in booking created."
-                            : null;
+                      ? "Invoice email sent (or marked sent if email is not configured)."
+                      : params.saved === "invoice-updated"
+                        ? "Invoice document fields saved."
+                        : params.saved === "invoice-generated"
+                          ? "Invoice document fields generated / refreshed."
+                          : params.saved === "booking-paid"
+                            ? "Bank transfer marked paid. Confirmation email with documents sent."
+                            : params.saved === "booking-unpaid"
+                              ? "Booking marked unpaid — 48h hold restored."
+                              : params.saved === "walk-in"
+                                ? "Walk-in booking created."
+                                : params.saved === "fare-updated"
+                                  ? "Charter fare product saved."
+                                  : null;
 
   const initialTab =
     parseTab(params.tab) ??
@@ -201,7 +218,9 @@ export default async function AdminPage({
             params.saved === "booking-unpaid" ||
             params.saved === "walk-in"
           ? "bookings"
-          : "analytics");
+          : params.saved === "fare-updated"
+            ? "fares"
+            : "analytics");
 
   return (
     <main className="relative min-h-[calc(100svh-4rem)] overflow-hidden">
@@ -250,6 +269,44 @@ export default async function AdminPage({
               params.error ? decodeURIComponent(params.error) : null
             }
             analytics={analytics}
+            charterFares={charterFares.map((f) => ({
+              id: f.id,
+              code: f.code,
+              name: f.name,
+              cabinClass: f.cabinClass as "economy" | "business",
+              sortOrder: f.sortOrder,
+              priceCents: f.priceCents,
+              tagline: f.tagline,
+              recommended: f.recommended,
+              mostPopular: f.mostPopular,
+              active: f.active,
+              flightChangeLabel: f.flightChangeLabel,
+              refundLabel: f.refundLabel,
+              checkedBaggage: f.checkedBaggage,
+              cabinBaggage: f.cabinBaggage,
+              seatSelection: f.seatSelection,
+              mealLabel: f.mealLabel,
+              frequentFlyerLabel: f.frequentFlyerLabel,
+              priorityCheckIn: f.priorityCheckIn,
+              priorityBoarding: f.priorityBoarding,
+              changePermitted: f.changePermitted,
+              changeFeeLabel: f.changeFeeLabel,
+              refundPermitted: f.refundPermitted,
+              refundFeeLabel: f.refundFeeLabel,
+              perkLines: Array.isArray(f.perkLines)
+                ? (f.perkLines as string[])
+                : [],
+              changeBullets: Array.isArray(f.changeBullets)
+                ? (f.changeBullets as string[])
+                : [],
+              refundBullets: Array.isArray(f.refundBullets)
+                ? (f.refundBullets as string[])
+                : [],
+              baggageBullets: Array.isArray(f.baggageBullets)
+                ? (f.baggageBullets as string[])
+                : [],
+              notes: f.notes,
+            }))}
             flights={flights.map((f) => ({
               id: f.id,
               airline: f.airline,
@@ -306,15 +363,34 @@ export default async function AdminPage({
               status: invoice.status,
               paymentMethod: invoice.paymentMethod,
               amountCents: invoice.amountCents,
+              fareCents: invoice.fareCents,
+              serviceFeeCents: invoice.serviceFeeCents,
+              airfareCents: invoice.airfareCents,
+              airportTaxesCents: invoice.airportTaxesCents,
+              extraBaggageCents: invoice.extraBaggageCents,
+              travelInsuranceCents: invoice.travelInsuranceCents,
+              otherChargesCents: invoice.otherChargesCents,
+              gstIncluded: invoice.gstIncluded,
+              accountNumber: invoice.accountNumber,
+              businessTpn: invoice.businessTpn,
+              routeLabel: invoice.routeLabel,
+              seatLabel: invoice.seatLabel,
+              nameRef: invoice.nameRef,
+              endorsementText: invoice.endorsementText,
+              fareCalculationLine: invoice.fareCalculationLine,
               customerName: invoice.customerName,
               customerEmail: invoice.customerEmail,
+              customerPhone: invoice.customerPhone,
+              notes: invoice.notes,
               bankReference: invoice.bankReference,
               squarePaymentId: invoice.squarePaymentId,
+              dueAt: invoice.dueAt?.toISOString() ?? null,
               sentAt: invoice.sentAt?.toISOString() ?? null,
               paidAt: invoice.paidAt?.toISOString() ?? null,
               markedPaidByAdmin: invoice.markedPaidByAdmin,
               createdAt: invoice.createdAt.toISOString(),
               bookingRef: invoice.booking.bookingRef,
+              bookingId: invoice.bookingId,
             }))}
           />
         </div>

@@ -4,8 +4,8 @@ import { FareComparisonRow } from "@/components/fares/FareComparisonRow";
 import { SelectedFlightSummary } from "@/components/fares/SelectedFlightSummary";
 import { getBrand } from "@/lib/branding";
 import { prisma } from "@/lib/db";
-import { buildFareProducts } from "@/lib/fares/products";
-import { priceFlight, recordDemandEvent } from "@/lib/pricing/service";
+import { buildCharterFareProducts } from "@/lib/fares/charter";
+import { recordDemandEvent } from "@/lib/pricing/service";
 import { getSessionId } from "@/lib/session";
 
 export default async function FlightDetailPage({
@@ -31,30 +31,15 @@ export default async function FlightDetailPage({
     console.error("recordDemandEvent failed", err);
   }
 
-  let price;
-  try {
-    price = await priceFlight(flight);
-  } catch (err) {
-    console.error("priceFlight failed", err);
-    price = {
-      displayPriceCents: 0,
-      basePriceCents: 0,
-      farePriced: false,
-      fareReleaseId: null,
-      fareReleaseName: null,
-    };
-  }
-
-  const soldOut = flight.remainingSeats < 1 || !price.farePriced;
-  const products = buildFareProducts({
-    basePriceCents: price.displayPriceCents,
+  const soldOut = flight.remainingSeats < 1;
+  const products = await buildCharterFareProducts({
     cabinClass: flight.cabinClass,
-    farePriced: Boolean(price.farePriced),
+    available: !soldOut,
   });
 
   return (
-    <main className="min-h-[calc(100svh-4rem)] bg-background">
-      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+    <main className="page-shell bg-background pb-safe">
+      <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
         <Link
           href="/"
           className="text-sm font-medium text-accent transition hover:text-accent-deep"
@@ -76,6 +61,8 @@ export default async function FlightDetailPage({
             flightId={flight.id}
             supportEmail={brand.supportEmail}
             disabled={soldOut}
+            title={`${flight.cabinClass === "business" ? "Business" : "Economy"} charter fares`}
+            subtitle="Perth ⇄ Paro rules · prices are per passenger one-way"
           />
         </div>
       </div>

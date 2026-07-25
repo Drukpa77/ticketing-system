@@ -20,19 +20,21 @@ export function FlightResultCard({
   globalLowestFareCents,
 }: FlightResultCardProps) {
   const stopLabel = flight.stops === 0 ? "Nonstop" : `${flight.stops} Stop`;
+  const detailsHref =
+    flight.economy?.href ?? flight.business?.href ?? "#";
 
   return (
     <article className="results-card border-b border-line bg-white px-4 py-5 transition hover:bg-surface/50 sm:px-6 sm:py-6">
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-4 flex min-w-0 flex-wrap items-center gap-2">
         <AirlineMark name={flight.airline} />
-        <p className="text-sm font-semibold text-foreground">
+        <p className="min-w-0 truncate text-sm font-semibold text-foreground">
           {flight.airline}{" "}
           <span className="text-muted">{flight.flightNumber}</span>
         </p>
       </div>
 
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:gap-6">
-        <div className="grid min-w-0 flex-1 grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-5">
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:gap-6">
+        <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-4">
           <Endpoint
             time={formatClock(flight.departureAt)}
             date={formatShortDate(flight.departureAt)}
@@ -41,26 +43,22 @@ export function FlightResultCard({
             align="left"
           />
 
-          <div className="flex min-w-[7.5rem] flex-col items-center gap-1.5 px-1 sm:min-w-[9rem]">
-            <p className="text-xs font-medium text-muted">
+          <div className="flex w-[4.75rem] flex-col items-center gap-1 px-0.5 sm:w-[8rem] sm:gap-1.5 sm:px-1">
+            <p className="text-[10px] font-medium text-muted sm:text-xs">
               {formatDuration(flight.durationMinutes)}
             </p>
-            <div className="flex w-full items-center gap-2">
+            <div className="flex w-full items-center gap-1 sm:gap-2">
               <span className="h-px flex-1 bg-line" />
-              <span className="rounded-full bg-surface px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-accent-deep">
+              <span className="rounded-full bg-surface px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.06em] text-accent-deep sm:px-2.5 sm:text-[11px] sm:tracking-[0.08em]">
                 {stopLabel}
               </span>
               <span className="h-px flex-1 bg-line" />
             </div>
             <Link
-              href={
-                flight.economy?.href ??
-                flight.business?.href ??
-                "#"
-              }
-              className="text-xs font-semibold text-accent transition hover:text-accent-deep"
+              href={detailsHref}
+              className="inline-flex min-h-9 items-center text-[11px] font-semibold text-accent transition hover:text-accent-deep sm:text-xs"
             >
-              Flight Details
+              Details
             </Link>
           </div>
 
@@ -73,7 +71,7 @@ export function FlightResultCard({
           />
         </div>
 
-        <div className="grid shrink-0 grid-cols-2 gap-2 sm:gap-3 lg:w-[22rem]">
+        <div className="grid min-w-0 shrink-0 grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:gap-3 xl:w-[22rem]">
           <CabinPriceCard
             label="Economy"
             fare={flight.economy}
@@ -115,15 +113,17 @@ function Endpoint({
   align: "left" | "right";
 }) {
   return (
-    <div className={align === "right" ? "text-right" : "text-left"}>
-      <p className="font-[family-name:var(--font-syne)] text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+    <div className={`min-w-0 ${align === "right" ? "text-right" : "text-left"}`}>
+      <p className="font-[family-name:var(--font-syne)] text-xl font-bold tracking-tight text-foreground sm:text-3xl">
         {time}
       </p>
-      <p className="mt-0.5 text-xs text-muted">{date}</p>
-      <p className="mt-2 font-[family-name:var(--font-syne)] text-xl font-semibold tracking-tight text-foreground">
+      <p className="mt-0.5 text-[11px] text-muted sm:text-xs">{date}</p>
+      <p className="mt-1.5 font-[family-name:var(--font-syne)] text-lg font-semibold tracking-tight text-foreground sm:mt-2 sm:text-xl">
         {code}
       </p>
-      <p className="text-xs text-muted">{city}</p>
+      <p className="truncate text-[11px] text-muted sm:text-xs" title={city}>
+        {city}
+      </p>
     </div>
   );
 }
@@ -144,14 +144,14 @@ function CabinPriceCard({
   if (!fare) {
     return (
       <div
-        className={`flex min-h-[7.5rem] flex-col justify-between rounded-xl border border-dashed border-line px-3 py-3 ${
+        className={`flex min-h-[6.5rem] flex-col justify-between rounded-xl border border-dashed border-line px-3 py-3 sm:min-h-[7.5rem] ${
           premium ? "bg-surface/40" : "bg-white"
         }`}
       >
         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
           {label}
         </p>
-        <p className="text-sm text-muted">Unavailable</p>
+        <p className="text-sm text-muted">Not Available</p>
       </div>
     );
   }
@@ -161,7 +161,7 @@ function CabinPriceCard({
 
   return (
     <div
-      className={`relative flex min-h-[7.5rem] flex-col rounded-xl border px-3 py-3 transition ${
+      className={`relative flex min-h-[6.5rem] flex-col rounded-xl border px-3 py-3 transition sm:min-h-[7.5rem] ${
         premium
           ? "border-accent/35 bg-gradient-to-b from-surface to-white"
           : "border-line bg-white"
@@ -180,7 +180,7 @@ function CabinPriceCard({
           {label}
         </p>
         {fare.fareReleaseName ? (
-          <p className="max-w-[4.5rem] truncate text-[10px] font-medium text-accent">
+          <p className="max-w-[5rem] truncate text-[10px] font-medium text-accent">
             {fare.fareReleaseName}
           </p>
         ) : null}
@@ -192,7 +192,7 @@ function CabinPriceCard({
         </p>
       ) : (
         <>
-          <p className="mt-2 font-[family-name:var(--font-syne)] text-xl font-bold tracking-tight text-foreground">
+          <p className="mt-2 font-[family-name:var(--font-syne)] text-lg font-bold tracking-tight text-foreground sm:text-xl">
             {formatAud(fare.displayPriceCents)}
           </p>
           <p className="mt-1 inline-flex items-center gap-1.5 text-[11px] text-muted">
@@ -202,7 +202,7 @@ function CabinPriceCard({
           </p>
           <Link
             href={fare.href}
-            className="mt-auto pt-3 text-xs font-semibold text-accent-deep transition hover:text-accent"
+            className="mt-auto inline-flex min-h-10 items-center pt-2 text-sm font-semibold text-accent-deep transition hover:text-accent"
           >
             {fare.ctaLabel} →
           </Link>
@@ -222,7 +222,7 @@ function AirlineMark({ name }: { name: string }) {
 
   return (
     <span
-      className="inline-flex size-8 items-center justify-center rounded-full bg-accent-deep text-[11px] font-bold tracking-wide text-white"
+      className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-deep text-[11px] font-bold tracking-wide text-white"
       aria-hidden
     >
       {initials || "DR"}

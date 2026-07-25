@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  CheckIcon,
-  CrossIcon,
-} from "@/components/fares/FareIcons";
+import { CheckIcon, CrossIcon } from "@/components/fares/FareIcons";
 import {
   FARE_DETAIL_TABS,
   fareFooterNotes,
@@ -37,10 +34,11 @@ export function FareDetailsModal({
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      document.body.style.overflow = prev;
     };
   }, [open, onClose]);
 
@@ -48,35 +46,38 @@ export function FareDetailsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/45 p-0 sm:items-center sm:p-6"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/45 p-0 sm:items-center sm:p-4 md:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="fare-modal-title"
       onClick={onClose}
     >
       <div
-        className="flex max-h-[92svh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_80px_rgba(16,35,28,0.28)]"
+        className="flex max-h-[min(92svh,920px)] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-[0_24px_80px_rgba(16,35,28,0.28)] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="relative bg-gradient-to-br from-accent-deep via-accent to-[#248f63] px-5 py-6 text-white sm:px-7">
+        <header className="relative shrink-0 bg-gradient-to-br from-accent-deep via-accent to-[#248f63] px-4 py-5 text-white sm:px-7 sm:py-6">
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="absolute right-4 top-4 inline-flex size-9 items-center justify-center rounded-full bg-white/15 text-lg transition hover:bg-white/25"
+            className="absolute right-3 top-3 inline-flex size-11 items-center justify-center rounded-full bg-white/15 text-xl transition hover:bg-white/25 sm:right-4 sm:top-4"
           >
             ×
           </button>
           <p
             id="fare-modal-title"
-            className="pr-10 font-[family-name:var(--font-syne)] text-3xl font-bold tracking-tight"
+            className="pr-12 font-[family-name:var(--font-syne)] text-2xl font-bold tracking-tight sm:text-3xl"
           >
             {product.name}
           </p>
-          <p className="mt-1 text-sm text-white/85">{product.cabinLabel}</p>
+          <p className="mt-1 text-sm text-white/85">
+            {product.cabinLabel}
+            {product.tagline ? ` · ${product.tagline}` : ""}
+          </p>
         </header>
 
-        <div className="flex gap-2 overflow-x-auto border-b border-line px-4 py-3 sm:px-6">
+        <div className="flex shrink-0 gap-2 overflow-x-auto border-b border-line px-3 py-3 [-ms-overflow-style:none] [scrollbar-width:none] sm:px-6 [&::-webkit-scrollbar]:hidden">
           {FARE_DETAIL_TABS.map((item) => {
             const active = tab === item.id;
             return (
@@ -84,7 +85,7 @@ export function FareDetailsModal({
                 key={item.id}
                 type="button"
                 onClick={() => setTab(item.id)}
-                className={`shrink-0 rounded-full px-3.5 py-2 text-xs font-semibold transition sm:text-sm ${
+                className={`shrink-0 rounded-full px-3.5 py-2.5 text-xs font-semibold transition sm:text-sm ${
                   active
                     ? "bg-surface text-accent-deep shadow-sm"
                     : "text-muted hover:bg-background hover:text-foreground"
@@ -96,9 +97,9 @@ export function FareDetailsModal({
           })}
         </div>
 
-        <div className="overflow-y-auto px-4 py-5 sm:px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
           {tab === "change_refund" ? (
-            <div className="space-y-4 rounded-2xl border border-line">
+            <div className="space-y-0 overflow-hidden rounded-2xl border border-line">
               <PolicySection
                 title="Flight and Date Change"
                 bullets={product.change.bullets}
@@ -116,33 +117,39 @@ export function FareDetailsModal({
           {tab === "baggage" ? (
             <BulletCard title="Baggage" bullets={product.baggageBullets} />
           ) : null}
+          {tab === "inclusions" ? (
+            <BulletCard
+              title="Inclusions"
+              bullets={[
+                `Checked baggage: ${product.highlights.baggage}`,
+                `Cabin baggage: ${product.highlights.cabinBaggage}`,
+                `Seat: ${product.highlights.seatSelection}`,
+                `Meal: ${product.highlights.meal}`,
+                ...product.perkLines,
+              ]}
+            />
+          ) : null}
           {tab === "name_change" ? (
             <BulletCard title="Name Change" bullets={product.nameChangeBullets} />
           ) : null}
           {tab === "no_show" ? (
             <BulletCard title="No Show" bullets={product.noShowBullets} />
           ) : null}
-          {tab === "loyalty" ? (
-            <BulletCard
-              title="Drukair Privilege"
-              bullets={product.loyaltyBullets}
-            />
-          ) : null}
         </div>
 
-        <footer className="border-t border-line bg-surface px-4 py-4 text-xs leading-relaxed text-muted sm:px-6">
+        <footer className="shrink-0 border-t border-line bg-surface px-4 py-4 text-xs leading-relaxed text-muted pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
           <ul className="list-disc space-y-1.5 pl-4">
             {fareFooterNotes().map((note) => (
               <li key={note}>{note}</li>
             ))}
           </ul>
-          <p className="mt-3">
+          <p className="mt-3 break-words">
             Questions? Call{" "}
             <span className="font-medium text-foreground">+61 2 9000 0000</span>{" "}
             or email{" "}
             <a
               href={`mailto:${supportEmail}`}
-              className="font-bold text-accent hover:text-accent-deep"
+              className="break-all font-bold text-accent hover:text-accent-deep"
             >
               {supportEmail}
             </a>
@@ -164,7 +171,7 @@ function PolicySection({
 }) {
   return (
     <div className="grid gap-4 p-4 sm:grid-cols-[1.4fr_1fr] sm:gap-0 sm:p-5">
-      <div className="sm:pr-5">
+      <div className="min-w-0 sm:pr-5">
         <h3 className="text-sm font-bold text-foreground">{title}</h3>
         <ul className="mt-3 list-disc space-y-2 pl-4 text-sm text-muted">
           {bullets.map((b) => (
@@ -195,7 +202,7 @@ function PolicySection({
 
 function BulletCard({ title, bullets }: { title: string; bullets: string[] }) {
   return (
-    <div className="rounded-2xl border border-line p-5">
+    <div className="rounded-2xl border border-line p-4 sm:p-5">
       <h3 className="text-sm font-bold text-foreground">{title}</h3>
       <ul className="mt-3 list-disc space-y-2 pl-4 text-sm text-muted">
         {bullets.map((b) => (

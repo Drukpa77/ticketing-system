@@ -5,6 +5,12 @@ import {
   makeTicketNumber,
 } from "@/lib/branding";
 import { prisma } from "@/lib/db";
+import {
+  buildRouteLabel,
+  defaultEndorsementText,
+  defaultFareCalculationLine,
+  defaultInvoiceIdentity,
+} from "@/lib/documents/invoiceFields";
 import { getCurrentFareRelease } from "@/lib/fares/current";
 import { getPricingConfig, priceFlight } from "@/lib/pricing/service";
 
@@ -12,6 +18,8 @@ export async function createPriceQuote(input: {
   flightId: string;
   returnFlightId?: string;
   sessionId: string;
+  /** Selected charter fare product (Saver / Flexi / …) — locks catalogue price. */
+  fareProductId?: string;
 }) {
   const tripType = input.returnFlightId ? "round_trip" : "one_way";
 
@@ -79,8 +87,38 @@ export async function createPriceQuote(input: {
     return { ok: false as const, error: "Return fare is not available" };
   }
 
-  const outboundCents = outboundPrice.displayPriceCents;
-  const returnCents = returnPrice?.displayPriceCents ?? 0;
+  let outboundCents = outboundPrice.displayPriceCents;
+  let returnCents = returnPrice?.displayPriceCents ?? 0;
+  let fareProductCode = "";
+  let fareProductName = "";
+  let fareReleaseName = outboundCurrent.name;
+  let returnFareReleaseName = returnCurrent?.name ?? "";
+
+  if (input.fareProductId) {
+    const product = await prisma.charterFareProduct.findFirst({
+      where: { id: input.fareProductId, active: true },
+    });
+    if (!product) {
+      return { ok: false as const, error: "Selected fare product is unavailable" };
+    }
+    if (product.cabinClass !== flight.cabinClass) {
+      return {
+        ok: false as const,
+        error: "Selected fare does not match this flight cabin",
+      };
+    }
+    fareProductCode = product.code;
+    fareProductName = product.name;
+    fareReleaseName = product.name;
+    outboundCents = product.priceCents;
+    if (returnFlight) {
+      returnCents = product.priceCents;
+      returnFareReleaseName = product.name;
+    } else {
+      returnCents = 0;
+    }
+  }
+
   const totalCents = outboundCents + returnCents;
   const expiresAt = new Date(Date.now() + config.quoteTtlMinutes * 60 * 1000);
 
@@ -89,10 +127,12 @@ export async function createPriceQuote(input: {
       data: {
         flightId: flight.id,
         fareReleaseId: outboundCurrent.id,
-        fareReleaseName: outboundCurrent.name,
+        fareReleaseName,
         returnFlightId: returnFlight?.id,
         returnFareReleaseId: returnCurrent?.id,
-        returnFareReleaseName: returnCurrent?.name ?? "",
+        returnFareReleaseName,
+        fareProductCode,
+        fareProductName,
         tripType,
         sessionId: input.sessionId,
         quotedPriceCents: totalCents,
@@ -285,6 +325,8 @@ export async function confirmBooking(input: {
           seatsBooked: input.seatsBooked,
           amountPaidCents: amountCents,
           serviceFeeCents,
+          fareProductCode: quote.fareProductCode,
+          fareProductName: quote.fareProductName,
           paymentMethod: input.paymentMethod,
           source: "online",
           status: paid ? "confirmed" : "pending_payment",
@@ -294,6 +336,12 @@ export async function confirmBooking(input: {
         },
       });
 
+      const identity = defaultInvoiceIdentity();
+      const routeLabel = buildRouteLabel({
+        origin: flight.origin,
+        destination: flight.destination,
+        tripType: quote.tripType,
+      });
       const invoice = await tx.invoice.create({
         data: {
           invoiceNumber: makeInvoiceNumber(),
@@ -303,6 +351,25 @@ export async function confirmBooking(input: {
           amountCents,
           fareCents,
           serviceFeeCents,
+          airfareCents: fareCents,
+          airportTaxesCents: 0,
+          extraBaggageCents: 0,
+          travelInsuranceCents: 0,
+          otherChargesCents: 0,
+          gstRateBps: 1000,
+          gstIncluded: true,
+          accountNumber: identity.accountNumber,
+          businessTpn: identity.businessTpn,
+          routeLabel,
+          seatLabel: "",
+          nameRef: bookingRef.slice(-7),
+          endorsementText: defaultEndorsementText(),
+          fareCalculationLine: defaultFareCalculationLine({
+            origin: flight.origin,
+            destination: flight.destination,
+            tripType: quote.tripType,
+            fareCents,
+          }),
           currency: "AUD",
           squarePaymentId: input.squarePaymentId,
           bankAccountName: input.bankDetails?.accountName,

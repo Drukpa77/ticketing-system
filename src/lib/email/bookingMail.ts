@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/db";
 import type { BookingDocumentData } from "@/lib/documents/templates";
 import {
-  renderETicketHtml,
-  renderTaxInvoiceHtml,
+  renderAirfareInvoiceHtml,
+  renderTravelDocumentHtml,
 } from "@/lib/documents/templates";
 import {
   bankTransferEmail,
@@ -35,6 +35,7 @@ export async function loadBookingDocumentData(
     nationality: booking.nationality,
     seatsBooked: booking.seatsBooked,
     fareReleaseName: booking.fareReleaseName,
+    fareProductName: booking.fareProductName,
     paymentMethod: booking.paymentMethod,
     amountPaidCents: booking.amountPaidCents,
     serviceFeeCents: booking.serviceFeeCents,
@@ -48,6 +49,20 @@ export async function loadBookingDocumentData(
           amountCents: booking.invoice.amountCents,
           fareCents: booking.invoice.fareCents,
           serviceFeeCents: booking.invoice.serviceFeeCents,
+          airfareCents: booking.invoice.airfareCents,
+          airportTaxesCents: booking.invoice.airportTaxesCents,
+          extraBaggageCents: booking.invoice.extraBaggageCents,
+          travelInsuranceCents: booking.invoice.travelInsuranceCents,
+          otherChargesCents: booking.invoice.otherChargesCents,
+          gstRateBps: booking.invoice.gstRateBps,
+          gstIncluded: booking.invoice.gstIncluded,
+          accountNumber: booking.invoice.accountNumber,
+          businessTpn: booking.invoice.businessTpn,
+          routeLabel: booking.invoice.routeLabel,
+          seatLabel: booking.invoice.seatLabel,
+          nameRef: booking.invoice.nameRef,
+          endorsementText: booking.invoice.endorsementText,
+          fareCalculationLine: booking.invoice.fareCalculationLine,
           status: booking.invoice.status,
           dueAt: booking.invoice.dueAt,
           createdAt: booking.invoice.createdAt,
@@ -57,6 +72,7 @@ export async function loadBookingDocumentData(
           bankReference: booking.invoice.bankReference,
           customerPhone: booking.invoice.customerPhone,
           squarePaymentId: booking.invoice.squarePaymentId,
+          notes: booking.invoice.notes,
         }
       : null,
   };
@@ -73,8 +89,8 @@ export async function sendBookingConfirmationBundle(bookingId: string) {
   }
 
   const email = bookingConfirmationEmail(data);
-  const eticket = renderETicketHtml(data);
-  const invoiceHtml = data.invoice ? renderTaxInvoiceHtml(data) : null;
+  const travelDoc = renderTravelDocumentHtml(data);
+  const airfareHtml = data.invoice ? renderAirfareInvoiceHtml(data) : null;
 
   const result = await sendEmail({
     to: data.email,
@@ -83,15 +99,15 @@ export async function sendBookingConfirmationBundle(bookingId: string) {
     text: email.text,
     attachments: [
       {
-        filename: `E-Ticket-${data.bookingRef}.html`,
-        content: eticket,
+        filename: `E-Ticket-Itinerary-${data.bookingRef}.html`,
+        content: travelDoc,
         contentType: "text/html",
       },
-      ...(invoiceHtml
+      ...(airfareHtml
         ? [
             {
-              filename: `Tax-Invoice-${data.invoice!.invoiceNumber}.html`,
-              content: invoiceHtml,
+              filename: `Airfare-Invoice-${data.invoice!.invoiceNumber}.html`,
+              content: airfareHtml,
               contentType: "text/html",
             },
           ]
@@ -117,7 +133,8 @@ export async function sendBankTransferBundle(bookingId: string) {
   }
 
   const email = bankTransferEmail(data);
-  const invoiceHtml = renderTaxInvoiceHtml(data);
+  const airfareHtml = renderAirfareInvoiceHtml(data);
+  const travelDoc = renderTravelDocumentHtml(data);
 
   const result = await sendEmail({
     to: data.email,
@@ -126,8 +143,13 @@ export async function sendBankTransferBundle(bookingId: string) {
     text: email.text,
     attachments: [
       {
-        filename: `Tax-Invoice-${data.invoice.invoiceNumber}.html`,
-        content: invoiceHtml,
+        filename: `Airfare-Invoice-${data.invoice.invoiceNumber}.html`,
+        content: airfareHtml,
+        contentType: "text/html",
+      },
+      {
+        filename: `E-Ticket-Itinerary-${data.bookingRef}.html`,
+        content: travelDoc,
         contentType: "text/html",
       },
     ],

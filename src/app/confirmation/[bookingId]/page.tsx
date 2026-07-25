@@ -34,7 +34,7 @@ export default async function ConfirmationPage({
       : 0;
 
   return (
-    <main className="relative min-h-[calc(100svh-4rem)] overflow-hidden">
+    <main className="page-shell relative overflow-x-clip pb-safe">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -46,8 +46,8 @@ export default async function ConfirmationPage({
         }}
       />
 
-      <div className="relative mx-auto w-full max-w-3xl px-4 py-12 sm:px-6">
-        <div className="border border-line bg-surface/90 p-6 backdrop-blur-sm sm:p-8">
+      <div className="relative mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
+        <div className="rounded-2xl border border-line bg-surface/90 p-5 backdrop-blur-sm sm:rounded-none sm:p-8">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
             {brand.airlineName}
           </p>
@@ -77,23 +77,35 @@ export default async function ConfirmationPage({
             {booking.source === "walk_in" ? " · Walk-in" : ""}
           </p>
 
-          <div className="mt-8 space-y-3 border-t border-line pt-6 text-sm">
-            <p>
-              <span className="text-muted">Outbound</span>{" "}
-              {booking.flight.airline} {booking.flight.flightNumber} ·{" "}
-              {airportLabel(booking.flight.origin)} →{" "}
-              {airportLabel(booking.flight.destination)} ·{" "}
-              {formatFlightTime(booking.flight.departureAt)}
-            </p>
-            {isRound && booking.returnFlight && (
-              <p>
-                <span className="text-muted">Return</span>{" "}
-                {booking.returnFlight.airline}{" "}
-                {booking.returnFlight.flightNumber} ·{" "}
-                {airportLabel(booking.returnFlight.origin)} →{" "}
-                {airportLabel(booking.returnFlight.destination)} ·{" "}
-                {formatFlightTime(booking.returnFlight.departureAt)}
+          <div className="mt-8 space-y-4 border-t border-line pt-6 text-sm">
+            <div>
+              <p className="text-muted">Outbound</p>
+              <p className="mt-1 break-words font-medium text-foreground">
+                {booking.flight.airline} {booking.flight.flightNumber}
               </p>
+              <p className="mt-1 break-words text-muted">
+                {airportLabel(booking.flight.origin)} →{" "}
+                {airportLabel(booking.flight.destination)}
+              </p>
+              <p className="mt-1 text-muted">
+                {formatFlightTime(booking.flight.departureAt)}
+              </p>
+            </div>
+            {isRound && booking.returnFlight && (
+              <div>
+                <p className="text-muted">Return</p>
+                <p className="mt-1 break-words font-medium text-foreground">
+                  {booking.returnFlight.airline}{" "}
+                  {booking.returnFlight.flightNumber}
+                </p>
+                <p className="mt-1 break-words text-muted">
+                  {airportLabel(booking.returnFlight.origin)} →{" "}
+                  {airportLabel(booking.returnFlight.destination)}
+                </p>
+                <p className="mt-1 text-muted">
+                  {formatFlightTime(booking.returnFlight.departureAt)}
+                </p>
+              </div>
             )}
             <p>
               <span className="text-muted">Fare</span>{" "}
@@ -125,21 +137,29 @@ export default async function ConfirmationPage({
             )}
           </div>
 
-          <div className="mt-6 flex flex-wrap gap-3">
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <Link
-              href={`/documents/ticket/${booking.bookingRef}`}
-              className="inline-flex bg-accent-deep px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-accent"
+              href={`/documents/eticket/${encodeURIComponent(booking.bookingRef)}`}
+              className={`inline-flex min-h-11 items-center justify-center rounded-full px-4 py-2.5 text-sm font-semibold transition ${
+                paid
+                  ? "bg-accent-deep text-white hover:bg-accent"
+                  : "border border-line text-foreground hover:border-accent"
+              }`}
               target="_blank"
             >
-              View E-Ticket
+              View travel document
             </Link>
             {invoice && (
               <Link
-                href={`/documents/invoice/${invoice.invoiceNumber}`}
-                className="inline-flex border border-line px-4 py-2.5 text-sm font-semibold text-foreground transition hover:border-accent"
+                href={`/documents/invoice/${encodeURIComponent(invoice.invoiceNumber)}`}
+                className={`inline-flex min-h-11 items-center justify-center rounded-full px-4 py-2.5 text-sm font-semibold transition ${
+                  unpaid
+                    ? "bg-accent-deep text-white hover:bg-accent"
+                    : "border border-line text-foreground hover:border-accent"
+                }`}
                 target="_blank"
               >
-                View Tax Invoice
+                View airfare invoice
               </Link>
             )}
           </div>
@@ -174,18 +194,24 @@ export default async function ConfirmationPage({
               </p>
 
               {invoice.paymentMethod === "bank_transfer" && unpaid && (
-                <dl className="mt-5 grid gap-2 border-t border-line pt-5 text-sm">
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted">Account name</dt>
-                    <dd className="font-medium">{invoice.bankAccountName}</dd>
+                <dl className="mt-5 grid gap-3 border-t border-line pt-5 text-sm">
+                  <div className="flex flex-col gap-1 min-[420px]:flex-row min-[420px]:justify-between min-[420px]:gap-4">
+                    <dt className="shrink-0 text-muted">Account name</dt>
+                    <dd className="min-w-0 break-words font-medium">
+                      {invoice.bankAccountName}
+                    </dd>
                   </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted">BSB</dt>
-                    <dd className="font-medium">{invoice.bankBsb}</dd>
+                  <div className="flex flex-col gap-1 min-[420px]:flex-row min-[420px]:justify-between min-[420px]:gap-4">
+                    <dt className="shrink-0 text-muted">BSB</dt>
+                    <dd className="min-w-0 break-all font-medium">
+                      {invoice.bankBsb}
+                    </dd>
                   </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted">Account number</dt>
-                    <dd className="font-medium">{invoice.bankAccountNumber}</dd>
+                  <div className="flex flex-col gap-1 min-[420px]:flex-row min-[420px]:justify-between min-[420px]:gap-4">
+                    <dt className="shrink-0 text-muted">Account number</dt>
+                    <dd className="min-w-0 break-all font-medium">
+                      {invoice.bankAccountNumber}
+                    </dd>
                   </div>
                   <div className="flex justify-between gap-4">
                     <dt className="text-muted">Payment reference</dt>
@@ -215,8 +241,8 @@ export default async function ConfirmationPage({
 
               <p className="mt-4 text-sm text-muted">
                 {unpaid
-                  ? "A bank-transfer email with this tax invoice is sent when email is configured. Admin can resend from Invoices."
-                  : "A confirmation email with your e-ticket and tax invoice/receipt is sent when email is configured."}
+                  ? "A bank-transfer email with the airfare invoice is sent when email is configured. Admin can preview, edit, and resend from Invoices."
+                  : "A confirmation email with your travel document and airfare invoice is sent when email is configured."}
               </p>
             </div>
           )}

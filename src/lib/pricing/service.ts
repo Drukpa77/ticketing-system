@@ -18,12 +18,41 @@ export async function getDemandScoreForFlight(
   flightId: string,
   demandWindowMinutes: number = AUTO_PRICING.demandWindowMinutes,
 ): Promise<number> {
+  const scores = await getDemandScoresForFlights(
+    [flightId],
+    demandWindowMinutes,
+  );
+  return scores.get(flightId) ?? 0;
+}
+
+/** One DB round-trip for many flights (search results). */
+export async function getDemandScoresForFlights(
+  flightIds: string[],
+  demandWindowMinutes: number = AUTO_PRICING.demandWindowMinutes,
+): Promise<Map<string, number>> {
+  const scores = new Map<string, number>();
+  if (flightIds.length === 0) return scores;
+
   const since = new Date(Date.now() - demandWindowMinutes * 60 * 1000);
   const events = await prisma.demandEvent.findMany({
-    where: { flightId, createdAt: { gte: since } },
-    select: { type: true },
+    where: { flightId: { in: flightIds }, createdAt: { gte: since } },
+    select: { flightId: true, type: true },
   });
-  return computeDemandScore(events);
+
+  const byFlight = new Map<
+    string,
+    Array<{ type: "view" | "hold" | "purchase" }>
+  >();
+  for (const event of events) {
+    const list = byFlight.get(event.flightId) ?? [];
+    list.push({ type: event.type });
+    byFlight.set(event.flightId, list);
+  }
+
+  for (const id of flightIds) {
+    scores.set(id, computeDemandScore(byFlight.get(id) ?? []));
+  }
+  return scores;
 }
 
 export type FlightPriceResult = PriceBreakdown & {

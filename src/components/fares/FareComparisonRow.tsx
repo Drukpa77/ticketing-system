@@ -7,7 +7,6 @@ import {
   BaggageIcon,
   CalendarIcon,
   CoinIcon,
-  PlaneMilesIcon,
   SeatIcon,
 } from "@/components/fares/FareIcons";
 import type { FareProduct } from "@/lib/fares/products";
@@ -19,6 +18,8 @@ type FareComparisonRowProps = {
   returnFlightId?: string;
   supportEmail: string;
   disabled?: boolean;
+  title?: string;
+  subtitle?: string;
 };
 
 export function FareComparisonRow({
@@ -27,42 +28,61 @@ export function FareComparisonRow({
   returnFlightId,
   supportEmail,
   disabled,
+  title = "Choose your fare",
+  subtitle = "Chartered flight fares for Perth ⇄ Paro — compare rules, then select.",
 }: FareComparisonRowProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [detailsId, setDetailsId] = useState<string | null>(null);
-  const activeProduct =
-    products.find((p) => p.id === detailsId) ?? null;
+  const activeProduct = products.find((p) => p.id === detailsId) ?? null;
 
-  function scrollNext() {
-    scrollerRef.current?.scrollBy({ left: 280, behavior: "smooth" });
+  function scrollBy(dir: -1 | 1) {
+    scrollerRef.current?.scrollBy({ left: dir * 280, behavior: "smooth" });
+  }
+
+  if (products.length === 0) {
+    return (
+      <section className="rounded-2xl border border-dashed border-line bg-white px-5 py-10 text-center">
+        <p className="font-semibold">No fare products available</p>
+        <p className="mt-1 text-sm text-muted">
+          Ask admin to activate charter fares for this cabin.
+        </p>
+      </section>
+    );
   }
 
   return (
-    <section className="relative">
-      <div className="mb-4 flex items-end justify-between gap-3">
-        <div>
-          <h2 className="font-[family-name:var(--font-syne)] text-2xl font-semibold tracking-tight">
-            Choose your fare
+    <section className="relative min-w-0">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="font-[family-name:var(--font-syne)] text-xl font-semibold tracking-tight sm:text-2xl">
+            {title}
           </h2>
-          <p className="mt-1 text-sm text-muted">
-            Compare flexibility, baggage, and miles — then select a fare to
-            continue.
-          </p>
+          <p className="mt-1 text-sm text-muted">{subtitle}</p>
         </div>
-        <button
-          type="button"
-          onClick={scrollNext}
-          aria-label="Scroll fare options"
-          className="hidden size-10 shrink-0 items-center justify-center rounded-full border border-line bg-white text-lg text-muted shadow-sm transition hover:border-accent hover:text-accent md:inline-flex"
-        >
-          ›
-        </button>
+        <div className="hidden shrink-0 gap-2 md:flex">
+          <button
+            type="button"
+            onClick={() => scrollBy(-1)}
+            aria-label="Previous fare options"
+            className="inline-flex size-11 items-center justify-center rounded-full border border-line bg-white text-lg text-muted shadow-sm transition hover:border-accent hover:text-accent"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollBy(1)}
+            aria-label="Next fare options"
+            className="inline-flex size-11 items-center justify-center rounded-full border border-line bg-white text-lg text-muted shadow-sm transition hover:border-accent hover:text-accent"
+          >
+            ›
+          </button>
+        </div>
       </div>
 
-      <div className="relative">
+      <div className="relative -mx-4 px-4 sm:mx-0 sm:px-0">
         <div
           ref={scrollerRef}
-          className="flex gap-4 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-3 [-ms-overflow-style:none] [scrollbar-width:none] sm:gap-4 [&::-webkit-scrollbar]:hidden"
         >
           {products.map((product) => (
             <FareCard
@@ -75,11 +95,22 @@ export function FareComparisonRow({
             />
           ))}
         </div>
+      </div>
+
+      <div className="mt-2 flex justify-center gap-2 md:hidden">
         <button
           type="button"
-          onClick={scrollNext}
-          aria-label="More fares"
-          className="absolute -right-1 top-1/2 z-10 inline-flex size-10 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-white text-lg text-muted shadow-[0_8px_20px_rgba(16,35,28,0.12)] transition hover:border-accent hover:text-accent md:hidden"
+          onClick={() => scrollBy(-1)}
+          aria-label="Previous fare options"
+          className="inline-flex size-11 items-center justify-center rounded-full border border-line bg-white text-lg text-muted transition hover:border-accent hover:text-accent"
+        >
+          ‹
+        </button>
+        <button
+          type="button"
+          onClick={() => scrollBy(1)}
+          aria-label="Next fare options"
+          className="inline-flex size-11 items-center justify-center rounded-full border border-line bg-white text-lg text-muted transition hover:border-accent hover:text-accent"
         >
           ›
         </button>
@@ -108,17 +139,22 @@ function FareCard({
   disabled?: boolean;
   onMoreDetails: () => void;
 }) {
+  const ribbon = product.recommended
+    ? "Recommended"
+    : product.mostPopular
+      ? "Most Popular"
+      : null;
+  const elevated = Boolean(ribbon);
+
   return (
     <article
-      className={`relative flex w-[min(100%,17.5rem)] shrink-0 flex-col rounded-2xl bg-white p-5 shadow-[0_10px_28px_rgba(16,35,28,0.06)] transition ${
-        product.mostPopular
-          ? "border-2 border-accent pt-9"
-          : "border border-line"
+      className={`relative flex w-[min(85vw,18rem)] shrink-0 snap-start flex-col rounded-2xl bg-white p-4 shadow-[0_10px_28px_rgba(16,35,28,0.06)] transition sm:w-[18rem] sm:p-5 ${
+        elevated ? "border-2 border-accent pt-9" : "border border-line"
       }`}
     >
-      {product.mostPopular ? (
+      {ribbon ? (
         <div className="absolute inset-x-0 top-0 rounded-t-[14px] bg-accent px-3 py-1.5 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-white">
-          Most Popular
+          {ribbon}
         </div>
       ) : null}
 
@@ -126,17 +162,23 @@ function FareCard({
         {product.name}
       </p>
       <p className="mt-1 text-sm text-muted">{product.cabinLabel}</p>
+      {product.tagline ? (
+        <p className="mt-1 text-xs font-medium text-accent">{product.tagline}</p>
+      ) : null}
       <div className="my-4 h-px bg-line" />
-      <p className="font-[family-name:var(--font-syne)] text-3xl font-bold tracking-tight text-foreground">
+      <p className="font-[family-name:var(--font-syne)] text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
         {product.available ? formatAud(product.priceCents) : "TBA"}
       </p>
+      {product.notes ? (
+        <p className="mt-1 text-xs text-muted">{product.notes}</p>
+      ) : null}
 
       <div className="mt-4">
         {disabled ? (
           <button
             type="button"
             disabled
-            className="w-full rounded-full bg-line/70 px-4 py-3 text-sm font-semibold text-muted"
+            className="min-h-11 w-full rounded-full bg-line/70 px-4 py-3 text-sm font-semibold text-muted"
           >
             Unavailable
           </button>
@@ -144,11 +186,12 @@ function FareCard({
           <BookButton
             flightId={flightId}
             returnFlightId={returnFlightId}
+            fareProductId={product.id}
             label="Select Fares"
             buttonClassName={
-              product.mostPopular
-                ? "w-full rounded-full bg-accent px-4 py-3 text-sm font-semibold text-white transition hover:bg-accent-deep disabled:cursor-not-allowed disabled:bg-zinc-400"
-                : "w-full rounded-full bg-accent/15 px-4 py-3 text-sm font-semibold text-accent-deep transition hover:bg-accent/25 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-muted"
+              elevated
+                ? "min-h-11 w-full rounded-full bg-accent px-4 py-3 text-sm font-semibold text-white transition hover:bg-accent-deep disabled:cursor-not-allowed disabled:bg-zinc-400"
+                : "min-h-11 w-full rounded-full bg-accent/15 px-4 py-3 text-sm font-semibold text-accent-deep transition hover:bg-accent/25 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-muted"
             }
           />
         )}
@@ -171,21 +214,26 @@ function FareCard({
           value={product.highlights.baggage}
         />
         <RuleRow
+          icon={<BaggageIcon className="text-accent" />}
+          label="Cabin Baggage"
+          value={product.highlights.cabinBaggage}
+        />
+        <RuleRow
           icon={<SeatIcon className="text-accent" />}
           label="Seat Selection"
           value={product.highlights.seatSelection}
         />
         <RuleRow
-          icon={<PlaneMilesIcon className="text-accent" />}
-          label="Miles"
-          value={product.highlights.miles}
+          icon={<MealIcon className="text-accent" />}
+          label="Meal"
+          value={product.highlights.meal}
         />
       </ul>
 
       <button
         type="button"
         onClick={onMoreDetails}
-        className="mt-5 text-left text-sm font-semibold text-accent transition hover:text-accent-deep"
+        className="mt-5 inline-flex min-h-11 items-center text-left text-sm font-semibold text-accent transition hover:text-accent-deep"
       >
         More Details →
       </button>
@@ -207,8 +255,29 @@ function RuleRow({
       <span className="mt-0.5 shrink-0">{icon}</span>
       <span className="min-w-0 flex-1">
         <span className="block text-xs text-muted">{label}</span>
-        <span className="font-medium text-foreground">{value}</span>
+        <span className="break-words font-medium text-foreground">{value}</span>
       </span>
     </li>
+  );
+}
+
+function MealIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+    >
+      <path
+        d="M4 3v8a3 3 0 0 0 3 3h1V3M8 14v7M16 3v18M16 3c2.5 0 4 2 4 5s-1.5 5-4 5"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

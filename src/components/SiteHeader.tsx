@@ -2,57 +2,55 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PersonIcon } from "@/components/fares/FareIcons";
 
-export function SiteHeader() {
+export function SiteHeader({ cartCount = 0 }: { cartCount?: number }) {
   const pathname = usePathname();
-  const onBookingHome = pathname === "/";
-  const onFlightsFlow =
-    onBookingHome ||
-    pathname.startsWith("/flights") ||
-    pathname.startsWith("/checkout") ||
-    pathname.startsWith("/confirmation");
+  const onCart = pathname === "/cart";
 
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-white">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
+    <header className="sticky top-0 z-30 border-b border-line bg-white pt-[env(safe-area-inset-top,0px)]">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
         <Link
           href="/"
-          className="font-[family-name:var(--font-syne)] text-lg font-semibold tracking-tight text-foreground"
+          className="min-w-0 truncate font-[family-name:var(--font-syne)] text-base font-semibold tracking-tight text-foreground sm:text-lg"
         >
           {process.env.NEXT_PUBLIC_BRAND_SHORT_NAME || "Drukair"}
         </Link>
 
-        {onFlightsFlow ? (
-          <nav className="flex items-center gap-4 text-sm sm:gap-5">
-            <Link
-              href="/admin"
-              className="inline-flex items-center gap-2 font-medium text-muted transition hover:text-foreground"
-            >
-              <PersonIcon />
-              <span>Sign In / Join Now</span>
-            </Link>
-            <Link
-              href="/"
-              aria-label="Cart"
-              className="relative inline-flex size-10 items-center justify-center rounded-full border border-line text-foreground transition hover:border-accent hover:text-accent"
-            >
-              <CartIcon />
-              <span className="absolute -right-0.5 -top-0.5 inline-flex size-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-white">
-                0
+        <nav className="flex shrink-0 items-center gap-1 sm:gap-3">
+          <Link
+            href="/"
+            className={`inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium transition hover:text-foreground ${
+              pathname === "/" ? "text-foreground" : "text-muted"
+            }`}
+          >
+            Search
+          </Link>
+          <Link
+            href="/admin"
+            className={`inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium transition hover:text-foreground ${
+              pathname.startsWith("/admin") ? "text-foreground" : "text-muted"
+            }`}
+          >
+            Admin
+          </Link>
+          <Link
+            href="/cart"
+            aria-label={`Cart${cartCount > 0 ? `, ${cartCount} items` : ""}`}
+            className={`relative inline-flex size-11 items-center justify-center rounded-full border transition ${
+              onCart
+                ? "border-accent text-accent"
+                : "border-line text-foreground hover:border-accent hover:text-accent"
+            }`}
+          >
+            <CartIcon />
+            {cartCount > 0 ? (
+              <span className="absolute -right-0.5 -top-0.5 inline-flex min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold leading-4 text-white">
+                {cartCount > 99 ? "99+" : cartCount}
               </span>
-            </Link>
-          </nav>
-        ) : (
-          <nav className="flex items-center gap-6 text-sm text-muted">
-            <Link href="/" className="transition hover:text-foreground">
-              Search
-            </Link>
-            <Link href="/admin" className="transition hover:text-foreground">
-              Admin
-            </Link>
-          </nav>
-        )}
+            ) : null}
+          </Link>
+        </nav>
       </div>
     </header>
   );

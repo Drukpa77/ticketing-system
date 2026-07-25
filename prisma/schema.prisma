@@ -133,6 +133,8 @@ model PriceQuote {
   basePriceSnapshotCents Int
   fareReleaseName        String      @default("")
   returnFareReleaseName  String      @default("")
+  fareProductCode        String      @default("")
+  fareProductName        String      @default("")
   demandMultiplier       Float
   scarcityMultiplier     Float
   baseMarkup             Float
@@ -168,6 +170,8 @@ model Booking {
   amountPaidCents     Int
   serviceFeeCents     Int            @default(0)
   fareReleaseName     String         @default("")
+  fareProductCode     String         @default("")
+  fareProductName     String         @default("")
   paymentMethod       PaymentMethod?
   source              BookingSource  @default(online)
   status              BookingStatus  @default(pending_payment)
@@ -194,6 +198,21 @@ model Invoice {
   amountCents       Int
   fareCents         Int            @default(0)
   serviceFeeCents   Int            @default(0)
+  /// Editable airfare invoice line items (AUD cents)
+  airfareCents         Int         @default(0)
+  airportTaxesCents    Int         @default(0)
+  extraBaggageCents    Int         @default(0)
+  travelInsuranceCents Int         @default(0)
+  otherChargesCents    Int         @default(0)
+  gstRateBps           Int         @default(1000)
+  gstIncluded          Boolean     @default(true)
+  accountNumber        String      @default("")
+  businessTpn          String      @default("")
+  routeLabel           String      @default("")
+  seatLabel            String      @default("")
+  nameRef              String      @default("")
+  endorsementText      String      @default("")
+  fareCalculationLine  String      @default("")
   currency          String         @default("AUD")
   squarePaymentId   String?
   bankAccountName   String?
@@ -226,4 +245,46 @@ model PricingConfig {
   demandBands         Json
   scarcityBands       Json
   updatedAt           DateTime @updatedAt
+}
+
+/// Admin-editable charter fare catalogue (Saver / Standard / Flexi / …).
+model CharterFareProduct {
+  id                 String     @id @default(cuid())
+  code               String     @unique
+  name               String
+  cabinClass         CabinClass
+  sortOrder          Int
+  priceCents         Int
+  currency           String     @default("AUD")
+  tagline            String     @default("")
+  recommended        Boolean    @default(false)
+  mostPopular        Boolean    @default(false)
+  active             Boolean    @default(true)
+  flightChangeLabel  String
+  refundLabel        String
+  checkedBaggage     String
+  cabinBaggage       String     @default("7kg")
+  seatSelection      String
+  mealLabel          String     @default("Meal Included")
+  frequentFlyerLabel String     @default("Not Applicable")
+  priorityCheckIn    String     @default("No")
+  priorityBoarding   String     @default("No")
+  changePermitted    Boolean    @default(true)
+  changeFeeLabel     String     @default("")
+  refundPermitted    Boolean    @default(false)
+  refundFeeLabel     String     @default("")
+  /// Extra perk lines shown on the card / details modal
+  perkLines          Json
+  changeBullets      Json
+  refundBullets      Json
+  baggageBullets     Json
+  nameChangeBullets  Json
+  noShowBullets      Json
+  loyaltyBullets     Json
+  notes              String     @default("")
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@index([cabinClass, sortOrder])
+  @@index([active])
 }

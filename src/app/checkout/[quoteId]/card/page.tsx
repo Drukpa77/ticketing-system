@@ -28,9 +28,11 @@ export default async function CardCheckoutPage({
       backHref={`/checkout/${quoteId}`}
       backLabel="Back to payment options"
     >
-      <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
-        <QuoteSummaryCard state={state} title="Pay by card" />
-        <div className="border border-line bg-white/70 p-6 backdrop-blur-sm sm:p-8">
+      <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:gap-8">
+        <div className="order-2 lg:order-1">
+          <QuoteSummaryCard state={state} title="Pay by card" />
+        </div>
+        <div className="order-1 min-w-0 rounded-2xl border border-line bg-white/70 p-5 backdrop-blur-sm sm:rounded-none sm:p-8 lg:order-2">
           {!state.available ? (
             <QuoteBlockedMessage state={state} />
           ) : (

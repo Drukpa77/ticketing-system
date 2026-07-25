@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { renderTaxInvoiceHtml } from "@/lib/documents/templates";
+import { renderAirfareInvoiceHtml } from "@/lib/documents/templates";
 import { loadBookingDocumentData } from "@/lib/email/bookingMail";
 
 export async function GET(
@@ -14,22 +14,24 @@ export async function GET(
       select: { bookingId: true },
     });
     if (!invoice) {
-      return new NextResponse("Invoice not found", { status: 404 });
+      return new NextResponse("Airfare invoice not found", { status: 404 });
     }
 
     const data = await loadBookingDocumentData(invoice.bookingId);
     if (!data?.invoice) {
-      return new NextResponse("Invoice not found", { status: 404 });
+      return new NextResponse("Airfare invoice not found", { status: 404 });
     }
 
-    return new NextResponse(renderTaxInvoiceHtml(data), {
+    return new NextResponse(renderAirfareInvoiceHtml(data), {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "private, no-store",
       },
     });
   } catch (error) {
-    console.error("invoice document failed", error);
-    return new NextResponse("Could not render invoice", { status: 500 });
+    console.error("airfare invoice document failed", error);
+    return new NextResponse("Could not render airfare invoice", {
+      status: 500,
+    });
   }
 }

@@ -13,7 +13,7 @@ export function CheckoutShell({
   backLabel?: string;
 }) {
   return (
-    <main className="relative min-h-[calc(100svh-4rem)] overflow-hidden">
+    <main className="page-shell relative overflow-x-clip pb-safe">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -25,14 +25,14 @@ export function CheckoutShell({
           `,
         }}
       />
-      <div className="relative mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
+      <div className="relative mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-14">
         <Link
           href={backHref}
-          className="text-sm text-muted underline decoration-line underline-offset-4 transition hover:text-foreground"
+          className="inline-flex min-h-11 items-center text-sm text-muted underline decoration-line underline-offset-4 transition hover:text-foreground"
         >
           {backLabel}
         </Link>
-        <div className="mt-8">{children}</div>
+        <div className="mt-6 sm:mt-8">{children}</div>
       </div>
     </main>
   );
@@ -48,15 +48,15 @@ export function QuoteSummaryCard({
   const { quote, isRound } = state;
 
   return (
-    <aside className="border border-line bg-surface/85 p-6 backdrop-blur-sm sm:p-8">
+    <aside className="min-w-0 rounded-2xl border border-line bg-surface/85 p-5 backdrop-blur-sm sm:rounded-none sm:p-8">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
         {isRound ? "Round trip" : "One way"} · locked fare
       </p>
-      <h1 className="mt-3 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
+      <h1 className="mt-3 font-[family-name:var(--font-syne)] text-2xl font-semibold tracking-tight sm:text-4xl">
         {title}
       </h1>
 
-      <div className="mt-8 space-y-5 text-sm">
+      <div className="mt-6 space-y-5 text-sm sm:mt-8">
         <div className="border-b border-line pb-5">
           <p className="text-xs uppercase tracking-[0.14em] text-muted">
             Outbound
@@ -64,7 +64,7 @@ export function QuoteSummaryCard({
           <p className="mt-2 font-medium text-foreground">
             {quote.flight.airline} {quote.flight.flightNumber}
           </p>
-          <p className="mt-1 text-muted">
+          <p className="mt-1 break-words text-muted">
             {airportLabel(quote.flight.origin)} →{" "}
             {airportLabel(quote.flight.destination)}
           </p>
@@ -87,7 +87,7 @@ export function QuoteSummaryCard({
             <p className="mt-2 font-medium text-foreground">
               {quote.returnFlight.airline} {quote.returnFlight.flightNumber}
             </p>
-            <p className="mt-1 text-muted">
+            <p className="mt-1 break-words text-muted">
               {airportLabel(quote.returnFlight.origin)} →{" "}
               {airportLabel(quote.returnFlight.destination)}
             </p>

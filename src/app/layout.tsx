@@ -1,7 +1,13 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Manrope, Syne } from "next/font/google";
-import { SiteHeader } from "@/components/SiteHeader";
+import { SiteHeaderShell } from "@/components/SiteHeaderShell";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -35,7 +41,7 @@ export default function RootLayout({
       className={`${manrope.variable} ${syne.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background text-foreground">
-        <SiteHeader />
+        <SiteHeaderShell />
         <div className="flex flex-1 flex-col">{children}</div>
       </body>
     </html>

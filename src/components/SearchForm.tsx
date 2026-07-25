@@ -10,7 +10,7 @@ function defaultDate(offsetDays: number): string {
 }
 
 const fieldClass =
-  "w-full appearance-none border-0 border-b border-line bg-transparent px-0 py-3 text-base text-foreground outline-none transition focus:border-accent";
+  "w-full min-w-0 max-w-full appearance-none border-0 border-b border-line bg-transparent px-0 py-3 text-base text-foreground outline-none transition focus:border-accent";
 
 export type SearchFormValues = {
   origin?: string;

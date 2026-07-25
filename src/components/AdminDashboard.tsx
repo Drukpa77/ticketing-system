@@ -11,16 +11,19 @@ import {
   updateFlightAction,
 } from "@/lib/actions/admin";
 import {
-  markInvoicePaidAction,
-  markInvoiceSentAction,
-  markInvoiceUnpaidAction,
-} from "@/lib/actions/invoices";
+  InvoiceAdminPanel,
+  type AdminInvoiceRow,
+} from "@/components/InvoiceAdminPanel";
 import {
   createWalkInBookingAction,
   markBookingPaidAction,
   markBookingUnpaidAction,
 } from "@/lib/actions/walkIn";
 import type { GroupedPriceAnalytics } from "@/lib/analytics/pricingAnalytics";
+import {
+  CharterFaresAdmin,
+  type AdminCharterFare,
+} from "@/components/CharterFaresAdmin";
 import { PricingAnalyticsSection } from "@/components/PricingAnalyticsSection";
 import { toDateTimeLocalValue } from "@/lib/datetime";
 import {
@@ -84,29 +87,21 @@ type BookingRow = {
   } | null;
 };
 
-type InvoiceRow = {
-  id: string;
-  invoiceNumber: string;
-  status: "unpaid" | "paid" | "cancelled" | "failed";
-  paymentMethod: "card" | "bank_transfer" | "cash";
-  amountCents: number;
-  customerName: string;
-  customerEmail: string;
-  bankReference: string | null;
-  squarePaymentId: string | null;
-  sentAt: string | null;
-  paidAt: string | null;
-  markedPaidByAdmin: boolean;
-  createdAt: string;
-  bookingRef: string;
-};
+type InvoiceRow = AdminInvoiceRow;
 
-type Tab = "analytics" | "flights" | "form" | "bookings" | "invoices";
+type Tab =
+  | "analytics"
+  | "flights"
+  | "form"
+  | "fares"
+  | "bookings"
+  | "invoices";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "analytics", label: "Analytics" },
   { id: "flights", label: "Flights" },
   { id: "form", label: "Add / Edit" },
+  { id: "fares", label: "Charter fares" },
   { id: "bookings", label: "Bookings" },
   { id: "invoices", label: "Invoices" },
 ];
@@ -131,6 +126,7 @@ export function AdminDashboard({
   bookings,
   invoices,
   analytics,
+  charterFares,
   initialTab,
   savedMessage,
   errorMessage,
@@ -139,6 +135,7 @@ export function AdminDashboard({
   bookings: BookingRow[];
   invoices: InvoiceRow[];
   analytics: GroupedPriceAnalytics;
+  charterFares: AdminCharterFare[];
   initialTab?: Tab;
   savedMessage?: string | null;
   errorMessage?: string | null;
@@ -669,6 +666,8 @@ export function AdminDashboard({
         </section>
       )}
 
+      {tab === "fares" && <CharterFaresAdmin fares={charterFares} />}
+
       {tab === "bookings" && (
         <section className="space-y-8">
           <div>
@@ -907,114 +906,7 @@ export function AdminDashboard({
         </section>
       )}
 
-      {tab === "invoices" && (
-        <section className="space-y-6">
-          <div>
-            <h2 className="font-[family-name:var(--font-syne)] text-2xl font-semibold tracking-tight">
-              Invoices
-            </h2>
-            <p className="mt-1 max-w-2xl text-sm text-muted">
-              Card payments are marked paid automatically via Square. Bank
-              transfers stay unpaid until you confirm funds. Mark paid sends the
-              confirmation + e-ticket email. Send email delivers the matching
-              Drukair template (confirmation or bank-transfer invoice).
-            </p>
-          </div>
-
-          {invoices.length === 0 ? (
-            <div className="border border-dashed border-line bg-surface/70 px-6 py-14 text-center text-sm text-muted">
-              No invoices yet.
-            </div>
-          ) : (
-            <ul className="divide-y divide-line border-y border-line bg-surface/60">
-              {invoices.map((invoice) => (
-                <li key={invoice.id} className="px-4 py-5 sm:px-5">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <p className="font-[family-name:var(--font-syne)] text-lg font-semibold tracking-tight">
-                          {invoice.invoiceNumber}
-                        </p>
-                        <span
-                          className={`text-xs font-medium uppercase tracking-[0.12em] ${
-                            invoice.status === "paid"
-                              ? "text-accent"
-                              : invoice.status === "unpaid"
-                                ? "text-amber-800"
-                                : "text-muted"
-                          }`}
-                        >
-                          {invoice.status}
-                          {invoice.markedPaidByAdmin ? " · admin" : ""}
-                        </span>
-                      </div>
-                      <p className="text-sm text-foreground">
-                        {invoice.customerName} · {invoice.customerEmail}
-                      </p>
-                      <p className="text-sm text-muted">
-                        Booking {invoice.bookingRef} ·{" "}
-                        {invoice.paymentMethod === "card"
-                          ? "Credit card (Square)"
-                          : invoice.paymentMethod === "cash"
-                            ? "Cash"
-                            : "Bank transfer"}
-                        {invoice.bankReference
-                          ? ` · Ref ${invoice.bankReference}`
-                          : ""}
-                        {invoice.squarePaymentId
-                          ? ` · ${invoice.squarePaymentId}`
-                          : ""}
-                      </p>
-                      <p className="text-sm font-medium">
-                        {formatAud(invoice.amountCents)}
-                        {invoice.sentAt
-                          ? ` · Sent ${new Date(invoice.sentAt).toLocaleString("en-AU")}`
-                          : " · Not sent"}
-                        {invoice.paidAt
-                          ? ` · Paid ${new Date(invoice.paidAt).toLocaleString("en-AU")}`
-                          : ""}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      {invoice.status !== "paid" ? (
-                        <form action={markInvoicePaidAction}>
-                          <input type="hidden" name="id" value={invoice.id} />
-                          <button
-                            type="submit"
-                            className="bg-accent-deep px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent"
-                          >
-                            Mark paid
-                          </button>
-                        </form>
-                      ) : (
-                        <form action={markInvoiceUnpaidAction}>
-                          <input type="hidden" name="id" value={invoice.id} />
-                          <button
-                            type="submit"
-                            className="border border-line px-4 py-2 text-sm font-medium text-muted transition hover:border-accent hover:text-foreground"
-                          >
-                            Mark unpaid
-                          </button>
-                        </form>
-                      )}
-                      <form action={markInvoiceSentAction}>
-                        <input type="hidden" name="id" value={invoice.id} />
-                        <button
-                          type="submit"
-                          className="border border-line px-4 py-2 text-sm font-medium text-muted transition hover:border-accent hover:text-foreground"
-                        >
-                          {invoice.sentAt ? "Resend email" : "Send email"}
-                        </button>
-                      </form>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
+      {tab === "invoices" && <InvoiceAdminPanel invoices={invoices} />}
     </div>
   );
 }

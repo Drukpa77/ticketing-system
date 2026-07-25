@@ -8,12 +8,11 @@ import {
   groupFlightResults,
   type DateStripDay,
 } from "@/lib/flights/results";
+import { getCharterCabinFromPrices } from "@/lib/fares/charter";
 import { airportLabel, buildAirportOptions, formatFlightTime } from "@/lib/format";
-import { formatAud } from "@/lib/pricing";
-import { priceFlight, recordDemandEvent } from "@/lib/pricing/service";
-import { getSessionId } from "@/lib/session";
-import { searchSchema } from "@/lib/validation";
 import type { AirportOption } from "@/lib/format";
+import { formatAud } from "@/lib/pricing";
+import { searchSchema } from "@/lib/validation";
 
 export type FlightSearchParams = {
   origin?: string;
@@ -122,12 +121,37 @@ export async function renderFlightSearch(raw: FlightSearchParams) {
 
   const { origin, destination, date, tripType, returnDate } = parsed.data;
   const isRoundTrip = tripType === "round_trip";
-  const sessionId = await getSessionId();
+  const { economy: economyFromCents, business: businessFromCents } =
+    await getCharterCabinFromPrices();
+
+  function catalogPrice(flight: {
+    cabinClass: string;
+    remainingSeats: number;
+    totalSeats: number;
+  }) {
+    const catalog =
+      flight.cabinClass === "business"
+        ? businessFromCents
+        : economyFromCents;
+    const cents = catalog ?? 0;
+    return {
+      basePriceCents: cents,
+      displayPriceCents: cents,
+      baseMarkup: 1,
+      demandMultiplier: 1,
+      scarcityMultiplier: 1,
+      demandScore: 0,
+      remainingSeats: flight.remainingSeats,
+      totalSeats: flight.totalSeats,
+      fareReleaseId: null as string | null,
+      fareReleaseName: null as string | null,
+      farePriced: cents > 0,
+    };
+  }
 
   if (isRoundTrip && outboundId) {
     const outbound = await prisma.flight.findFirst({
       where: { id: outboundId, active: true },
-      include: { fareReleases: { orderBy: { sortOrder: "asc" } } },
     });
     if (!outbound) {
       return (
@@ -140,7 +164,7 @@ export async function renderFlightSearch(raw: FlightSearchParams) {
       );
     }
 
-    const outboundPrice = await priceFlight(outbound);
+    const outboundPrice = catalogPrice(outbound);
     const activeReturnDate = returnDate ?? date;
     const { windowStart, windowEnd } = searchWindow(activeReturnDate);
     const returns = await prisma.flight.findMany({
@@ -156,17 +180,13 @@ export async function renderFlightSearch(raw: FlightSearchParams) {
           lte: windowEnd,
         },
       },
-      include: { fareReleases: { orderBy: { sortOrder: "asc" } } },
       orderBy: { departureAt: "asc" },
     });
 
-    const priced = await Promise.all(
-      returns.map(async (flight) => {
-        await recordDemandEvent(flight.id, "view", sessionId);
-        const price = await priceFlight(flight);
-        return { flight, price };
-      }),
-    );
+    const priced = returns.map((flight) => ({
+      flight,
+      price: catalogPrice(flight),
+    }));
 
     const dayFares = await buildDayFares(
       priced.map(({ flight, price }) => ({
@@ -272,17 +292,13 @@ export async function renderFlightSearch(raw: FlightSearchParams) {
       destination,
       departureAt: { gte: windowStart, lte: windowEnd },
     },
-    include: { fareReleases: { orderBy: { sortOrder: "asc" } } },
     orderBy: { departureAt: "asc" },
   });
 
-  const priced = await Promise.all(
-    flights.map(async (flight) => {
-      await recordDemandEvent(flight.id, "view", sessionId);
-      const price = await priceFlight(flight);
-      return { flight, price };
-    }),
-  );
+  const priced = flights.map((flight) => ({
+    flight,
+    price: catalogPrice(flight),
+  }));
 
   const dayFares = await buildDayFares(
     priced.map(({ flight, price }) => ({

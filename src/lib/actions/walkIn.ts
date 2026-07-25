@@ -11,6 +11,12 @@ import {
 } from "@/lib/branding";
 import { prisma } from "@/lib/db";
 import {
+  buildRouteLabel,
+  defaultEndorsementText,
+  defaultFareCalculationLine,
+  defaultInvoiceIdentity,
+} from "@/lib/documents/invoiceFields";
+import {
   sendBankTransferBundle,
   sendBookingConfirmationBundle,
 } from "@/lib/email/bookingMail";
@@ -188,6 +194,13 @@ export async function createWalkInBookingAction(formData: FormData) {
         },
       });
 
+      const identity = defaultInvoiceIdentity();
+      const tripType = returnFlight ? "round_trip" : "one_way";
+      const routeLabel = buildRouteLabel({
+        origin: flight.origin,
+        destination: flight.destination,
+        tripType,
+      });
       const invoice = await tx.invoice.create({
         data: {
           invoiceNumber: makeInvoiceNumber(),
@@ -197,6 +210,25 @@ export async function createWalkInBookingAction(formData: FormData) {
           amountCents: fee.totalCents,
           fareCents: fee.fareCents,
           serviceFeeCents: fee.serviceFeeCents,
+          airfareCents: fee.fareCents,
+          airportTaxesCents: 0,
+          extraBaggageCents: 0,
+          travelInsuranceCents: 0,
+          otherChargesCents: 0,
+          gstRateBps: 1000,
+          gstIncluded: true,
+          accountNumber: identity.accountNumber,
+          businessTpn: identity.businessTpn,
+          routeLabel,
+          seatLabel: "",
+          nameRef: bookingRef.slice(-7),
+          endorsementText: defaultEndorsementText(),
+          fareCalculationLine: defaultFareCalculationLine({
+            origin: flight.origin,
+            destination: flight.destination,
+            tripType,
+            fareCents: fee.fareCents,
+          }),
           currency: "AUD",
           bankAccountName: !paidUpfront ? bank?.accountName : null,
           bankBsb: !paidUpfront ? bank?.bsb : null,
