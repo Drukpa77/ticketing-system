@@ -94,8 +94,8 @@ export function DatePicker({
   const triggerId = id ?? autoId;
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const selected = parseIso(value);
-  const minDate = parseIso(min ?? "");
+  const selected = useMemo(() => parseIso(value), [value]);
+  const minDate = useMemo(() => parseIso(min ?? ""), [min]);
   const today = useMemo(() => {
     const t = new Date();
     return new Date(t.getFullYear(), t.getMonth(), t.getDate());
