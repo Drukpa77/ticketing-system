@@ -7,7 +7,7 @@ import {
 } from "@/components/checkout/CheckoutShell";
 import { getCheckoutQuoteState } from "@/lib/checkout/loadQuote";
 import { isBankTransferConfigured } from "@/lib/payments/bank";
-import { getSquarePublicConfig } from "@/lib/payments/square";
+import { getStripePublicConfig } from "@/lib/payments/stripe";
 
 export default async function CheckoutPage({
   params,
@@ -25,7 +25,7 @@ export default async function CheckoutPage({
     redirect(`/checkout/${quoteId}/passengers`);
   }
 
-  const square = getSquarePublicConfig();
+  const stripe = getStripePublicConfig();
   const bankConfigured = isBankTransferConfigured();
 
   return (
@@ -57,7 +57,7 @@ export default async function CheckoutPage({
               </div>
 
               <div className="grid gap-3">
-                {square.configured ? (
+                {stripe.configured ? (
                   <Link
                     href={`/checkout/${quoteId}/card`}
                     className="card-elevated rounded-2xl border border-line bg-surface/80 px-5 py-5 hover:border-accent/40"
@@ -66,14 +66,14 @@ export default async function CheckoutPage({
                       Pay by card
                     </p>
                     <p className="mt-1 text-sm text-muted">
-                      Secure Square checkout · invoice marked paid automatically
+                      Secure Stripe checkout · invoice marked paid automatically
                     </p>
                   </Link>
                 ) : (
                   <div className="border border-line bg-surface/40 px-5 py-5 opacity-60">
                     <p className="font-semibold">Pay by card</p>
                     <p className="mt-1 text-sm text-muted">
-                      Square is not configured yet
+                      Card payments are not configured yet
                     </p>
                   </div>
                 )}
@@ -101,10 +101,10 @@ export default async function CheckoutPage({
                 )}
               </div>
 
-              {!square.configured && !bankConfigured && (
+              {!stripe.configured && !bankConfigured && (
                 <p className="border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                  No payment methods are available. Ask admin to configure Square
-                  or bank details.
+                  No payment methods are available. Ask admin to configure
+                  Stripe or bank details.
                 </p>
               )}
             </div>

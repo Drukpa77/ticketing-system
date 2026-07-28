@@ -230,7 +230,7 @@ model Invoice {
   endorsementText      String      @default("")
   fareCalculationLine  String      @default("")
   currency          String         @default("AUD")
-  squarePaymentId   String?
+  stripePaymentIntentId String?
   bankAccountName   String?
   bankBsb           String?
   bankAccountNumber String?

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useMemo, useState, useTransition } from "react";
-import { SquareCardFields } from "@/components/SquareCardFields";
+import { StripePaymentFields } from "@/components/StripePaymentFields";
 import { payWithCardAction } from "@/lib/actions/payment";
 import { calculateCardServiceFee } from "@/lib/payments/fees";
 import { formatAud } from "@/lib/pricing";
@@ -33,10 +33,10 @@ type CardCheckoutFormProps = {
     nationality?: string;
     seatsBooked?: number;
   };
-  square: {
-    applicationId: string;
-    locationId: string;
-    environment: "sandbox" | "production";
+  stripe: {
+    publishableKey: string;
+    clientSecret: string | null;
+    error?: string | null;
   };
 };
 
@@ -55,7 +55,7 @@ export function CardCheckoutForm({
   maxSeats,
   unitPriceCents,
   initialPassenger,
-  square,
+  stripe,
 }: CardCheckoutFormProps) {
   const passengerName = initialPassenger.passengerName.trim();
   const email = initialPassenger.email.trim();
@@ -126,7 +126,7 @@ export function CardCheckoutForm({
           Card payment
         </p>
         <h2 className="mt-2 font-[family-name:var(--font-syne)] text-2xl font-semibold tracking-tight">
-          Pay securely with Square
+          Pay securely with Stripe
         </h2>
         <p className="mt-2 text-sm text-muted">
           Your card details never touch our servers.
@@ -291,57 +291,54 @@ export function CardCheckoutForm({
       </div>
 
       <div className="border border-line bg-white/80 p-5 sm:p-6">
-        <SquareCardFields
-          applicationId={square.applicationId}
-          locationId={square.locationId}
-          environment={square.environment}
-          amountCents={fee.totalCents}
-          billingContact={billingContact}
-          disabled={pending || !passengerOk || !billingOk}
-          buttonLabel={
-            pending ? "Processing…" : `Pay ${formatAud(fee.totalCents)}`
-          }
-          onError={handleError}
-          onToken={async (token) => {
-            if (!passengerOk) {
-              setError("Enter a valid passenger name and email first");
-              return;
+        {stripe.clientSecret ? (
+          <StripePaymentFields
+            publishableKey={stripe.publishableKey}
+            clientSecret={stripe.clientSecret}
+            billingContact={billingContact}
+            disabled={pending || !passengerOk || !billingOk}
+            buttonLabel={
+              pending ? "Processing…" : `Pay ${formatAud(fee.totalCents)}`
             }
-            if (!billingOk) {
-              setError("Enter a complete billing address first");
-              return;
-            }
-            startTransition(async () => {
-              try {
-                const result = await payWithCardAction({
-                  quoteId,
-                  passengerName,
-                  email,
-                  passengerPhone,
-                  passportNumber,
-                  nationality,
-                  seatsBooked,
-                  sourceId: token,
-                  billingAddress: {
-                    addressLine1: billingLine1.trim(),
-                    addressLine2: billingLine2.trim() || undefined,
-                    locality: billingCity.trim(),
-                    administrativeDistrictLevel1: billingState.trim(),
-                    postalCode: billingPostal.trim(),
-                    country: billingCountry.trim().toUpperCase() || "AU",
-                  },
-                });
-                if (result?.error) setError(result.error);
-              } catch (err) {
-                setError(
-                  err instanceof Error
-                    ? err.message
-                    : "Payment failed unexpectedly",
-                );
+            onError={handleError}
+            onSuccess={async (paymentIntentId) => {
+              if (!passengerOk) {
+                setError("Enter a valid passenger name and email first");
+                return;
               }
-            });
-          }}
-        />
+              if (!billingOk) {
+                setError("Enter a complete billing address first");
+                return;
+              }
+              startTransition(async () => {
+                try {
+                  const result = await payWithCardAction({
+                    quoteId,
+                    passengerName,
+                    email,
+                    passengerPhone,
+                    passportNumber,
+                    nationality,
+                    seatsBooked,
+                    paymentIntentId,
+                  });
+                  if (result?.error) setError(result.error);
+                } catch (err) {
+                  setError(
+                    err instanceof Error
+                      ? err.message
+                      : "Payment failed unexpectedly",
+                  );
+                }
+              });
+            }}
+          />
+        ) : (
+          <p className="text-sm text-red-700">
+            {stripe.error ??
+              "Card payments are temporarily unavailable. Please use bank transfer instead."}
+          </p>
+        )}
       </div>
 
       {error ? (

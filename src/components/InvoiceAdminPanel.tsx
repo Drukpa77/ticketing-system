@@ -39,7 +39,7 @@ export type AdminInvoiceRow = {
   nationality: string;
   notes: string;
   bankReference: string | null;
-  squarePaymentId: string | null;
+  stripePaymentIntentId: string | null;
   dueAt: string | null;
   sentAt: string | null;
   paidAt: string | null;

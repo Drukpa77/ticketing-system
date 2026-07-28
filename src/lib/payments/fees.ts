@@ -1,4 +1,8 @@
-/** Square online rate passed through to the customer as a credit card fee. */
+/**
+ * Card processing surcharge passed through to the customer.
+ * Update to match your actual Stripe rate — AU surcharging rules require this
+ * to not exceed your real cost of acceptance.
+ */
 export const CARD_SERVICE_FEE_RATE = 0.022;
 
 export function calculateCardServiceFee(fareCents: number) {

@@ -451,7 +451,7 @@ export function renderAirfareInvoiceHtml(data: BookingDocumentData) {
                 ? "Cash"
                 : "—"
         }</span></div>
-        <div class="row"><span>Transaction ID:</span><span>${esc(invoice.squarePaymentId || data.bookingRef)}</span></div>
+        <div class="row"><span>Transaction ID:</span><span>${esc(invoice.stripePaymentIntentId || data.bookingRef)}</span></div>
         <div class="ref">Reference: Invoice Number / Passenger Name</div>`
         }
         ${

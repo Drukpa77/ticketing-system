@@ -1,6 +1,5 @@
 "use server";
 
-import { createHash } from "crypto";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { redirect } from "next/navigation";
 import { confirmBooking } from "@/lib/booking/confirmBooking";
@@ -15,45 +14,21 @@ import {
 } from "@/lib/payments/bank";
 import { calculateCardServiceFee } from "@/lib/payments/fees";
 import {
-  chargeCardPayment,
-  isSquareConfigured,
-  refundCardPayment,
-} from "@/lib/payments/square";
+  isStripeConfigured,
+  refundPaymentIntent,
+  retrievePaymentIntent,
+} from "@/lib/payments/stripe";
 import { getSessionId } from "@/lib/session";
 import { bookingSchema } from "@/lib/validation";
 import { z } from "zod";
 
-const billingAddressSchema = z.object({
-  addressLine1: z.string().trim().min(3, "Billing street address is required"),
-  addressLine2: z.string().trim().optional(),
-  locality: z.string().trim().min(2, "Billing suburb / city is required"),
-  administrativeDistrictLevel1: z.string().trim().optional(),
-  postalCode: z.string().trim().min(3, "Billing postcode is required"),
-  country: z.string().trim().length(2, "Billing country is required"),
-});
-
 const cardPaymentSchema = bookingSchema.extend({
-  sourceId: z.string().min(1, "Card token missing"),
-  billingAddress: billingAddressSchema,
+  paymentIntentId: z.string().min(1, "Payment reference missing"),
 });
 
 function toErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) return error.message;
   return fallback;
-}
-
-function cardIdempotencyKey(opts: {
-  quoteId: string;
-  seatsBooked: number;
-  totalCents: number;
-  sessionId: string;
-}) {
-  return createHash("sha256")
-    .update(
-      `card:${opts.quoteId}:${opts.seatsBooked}:${opts.totalCents}:${opts.sessionId}`,
-    )
-    .digest("hex")
-    .slice(0, 45);
 }
 
 export async function payWithCardAction(input: {
@@ -64,18 +39,10 @@ export async function payWithCardAction(input: {
   passportNumber?: string;
   nationality?: string;
   seatsBooked: number;
-  sourceId: string;
-  billingAddress: {
-    addressLine1: string;
-    addressLine2?: string;
-    locality: string;
-    administrativeDistrictLevel1?: string;
-    postalCode: string;
-    country: string;
-  };
+  paymentIntentId: string;
 }): Promise<{ error?: string }> {
   try {
-    if (!isSquareConfigured()) {
+    if (!isStripeConfigured()) {
       return {
         error:
           "Card payments are not configured yet. Choose bank transfer instead.",
@@ -122,27 +89,41 @@ export async function payWithCardAction(input: {
     const fareCents =
       quote.quotedPriceCents * parsed.data.seatsBooked;
     const { totalCents, serviceFeeCents } = calculateCardServiceFee(fareCents);
-    const idempotencyKey = cardIdempotencyKey({
-      quoteId: parsed.data.quoteId,
-      seatsBooked: parsed.data.seatsBooked,
-      totalCents,
-      sessionId,
-    });
 
-    let squarePaymentId: string;
+    // The card was already charged client-side via Stripe's Payment Element —
+    // verify the PaymentIntent server-side before trusting it (status, amount,
+    // currency, and that it belongs to this quote) rather than taking the
+    // client's word for it.
+    let paymentIntentId: string;
     try {
-      const payment = await chargeCardPayment({
-        sourceId: parsed.data.sourceId,
-        amountCents: totalCents,
-        idempotencyKey,
-        referenceId: parsed.data.quoteId,
-        note: `Flight booking ${parsed.data.passengerName} (incl. 2.2% credit card fee)`,
-        buyerEmail: parsed.data.email,
-        billingAddress: parsed.data.billingAddress,
-      });
-      squarePaymentId = payment.paymentId;
+      const intent = await retrievePaymentIntent(parsed.data.paymentIntentId);
+      if (intent.status !== "succeeded") {
+        return { error: `Payment was not completed (status: ${intent.status}).` };
+      }
+      if (intent.currency !== "aud") {
+        return { error: "Payment currency mismatch — contact support." };
+      }
+      if (intent.amount !== totalCents) {
+        // Funds were captured but for an unexpected amount — refund immediately.
+        try {
+          await refundPaymentIntent({
+            paymentIntentId: intent.id,
+            idempotencyKey: `refund-mismatch-${intent.id}`,
+          });
+        } catch (refundError) {
+          console.error("mismatch auto-refund failed", refundError);
+        }
+        return {
+          error:
+            "Payment amount did not match the quote — your card was refunded. Please try again.",
+        };
+      }
+      if (intent.metadata?.quoteId && intent.metadata.quoteId !== parsed.data.quoteId) {
+        return { error: "Payment does not match this booking — contact support." };
+      }
+      paymentIntentId = intent.id;
     } catch (error) {
-      return { error: toErrorMessage(error, "Card payment failed") };
+      return { error: toErrorMessage(error, "Could not verify card payment") };
     }
 
     const result = await confirmBooking({
@@ -156,22 +137,22 @@ export async function payWithCardAction(input: {
       seatsBooked: parsed.data.seatsBooked,
       paymentMethod: "card",
       invoiceStatus: "paid",
-      squarePaymentId,
+      stripePaymentIntentId: paymentIntentId,
       amountCentsOverride: totalCents,
       serviceFeeCents,
     });
 
     if (!result.ok) {
       try {
-        await refundCardPayment({
-          paymentId: squarePaymentId,
-          idempotencyKey: `refund-${idempotencyKey}`,
+        await refundPaymentIntent({
+          paymentIntentId,
+          idempotencyKey: `refund-${paymentIntentId}`,
           amountCents: totalCents,
         });
       } catch (refundError) {
         console.error("auto-refund failed", refundError);
         return {
-          error: `${result.error}. Card was charged (${squarePaymentId}) but booking failed — contact support; refund may need manual processing.`,
+          error: `${result.error}. Card was charged (${paymentIntentId}) but booking failed — contact support; refund may need manual processing.`,
         };
       }
       return {

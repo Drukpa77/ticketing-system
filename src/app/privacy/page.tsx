@@ -33,7 +33,7 @@ export default function PrivacyPage() {
             <p className="mt-2 text-muted">
               When you request a quote or complete a booking we may collect your
               name, email address, phone number, passport number, nationality,
-              travel dates, payment and billing details (processed by Square for
+              travel dates, payment and billing details (processed by Stripe for
               card payments), and messages you send us about your booking.
             </p>
           </section>
@@ -58,7 +58,7 @@ export default function PrivacyPage() {
             <p className="mt-2 text-muted">
               We share only what is needed to fulfil your booking:{" "}
               {brand.airlineName} / operational partners for travel documents,
-              Square for card processing, our email provider for transactional
+              Stripe for card processing, our email provider for transactional
               messages, and our hosting/database provider. We do not sell your
               personal information.
             </p>

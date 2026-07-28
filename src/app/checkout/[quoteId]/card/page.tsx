@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CardCheckoutForm } from "@/components/checkout/CardCheckoutForm";
@@ -8,7 +9,8 @@ import {
 } from "@/components/checkout/CheckoutShell";
 import { getCheckoutQuoteState } from "@/lib/checkout/loadQuote";
 import { passengerDraftFromQuote } from "@/lib/checkout/passengerDraft";
-import { getSquarePublicConfig } from "@/lib/payments/square";
+import { calculateCardServiceFee } from "@/lib/payments/fees";
+import { createPaymentIntent, getStripePublicConfig } from "@/lib/payments/stripe";
 
 export default async function CardCheckoutPage({
   params,
@@ -24,9 +26,41 @@ export default async function CardCheckoutPage({
     redirect(`/checkout/${quoteId}/passengers`);
   }
 
-  const square = getSquarePublicConfig();
-  if (!square.configured) {
+  const stripe = getStripePublicConfig();
+  if (!stripe.configured) {
     redirect(`/checkout/${quoteId}`);
+  }
+
+  let clientSecret: string | null = null;
+  let paymentError: string | null = null;
+
+  if (state.available) {
+    const seatsBooked = Math.min(
+      Math.max(1, draft.seatsBooked ?? 1),
+      Math.min(9, Math.max(1, state.maxSeats)),
+    );
+    const fareCents = state.quote.quotedPriceCents * seatsBooked;
+    const fee = calculateCardServiceFee(fareCents);
+    const idempotencyKey = createHash("sha256")
+      .update(`pi:${quoteId}:${seatsBooked}:${fee.totalCents}`)
+      .digest("hex")
+      .slice(0, 45);
+
+    try {
+      const intent = await createPaymentIntent({
+        amountCents: fee.totalCents,
+        idempotencyKey,
+        quoteId,
+        description: `Flight booking ${draft.passengerName || quoteId}`,
+        receiptEmail: draft.email,
+      });
+      clientSecret = intent.clientSecret;
+    } catch (error) {
+      paymentError =
+        error instanceof Error
+          ? error.message
+          : "Could not start card payment";
+    }
   }
 
   return (
@@ -47,10 +81,10 @@ export default async function CardCheckoutPage({
               maxSeats={state.maxSeats}
               unitPriceCents={state.quote.quotedPriceCents}
               initialPassenger={draft}
-              square={{
-                applicationId: square.applicationId,
-                locationId: square.locationId,
-                environment: square.environment,
+              stripe={{
+                publishableKey: stripe.publishableKey,
+                clientSecret,
+                error: paymentError,
               }}
             />
           )}

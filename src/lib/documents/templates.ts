@@ -19,7 +19,7 @@ export type BookingDocumentData = {
   amountPaidCents: number;
   serviceFeeCents: number;
   tripType: string;
-  squarePaymentId?: string | null;
+  stripePaymentIntentId?: string | null;
   flight: {
     airline: string;
     flightNumber: string;
@@ -65,7 +65,7 @@ export type BookingDocumentData = {
     bankAccountNumber: string | null;
     bankReference: string | null;
     customerPhone?: string | null;
-    squarePaymentId?: string | null;
+    stripePaymentIntentId?: string | null;
     notes?: string | null;
   } | null;
 };

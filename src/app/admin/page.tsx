@@ -409,7 +409,7 @@ export default async function AdminPage({
               nationality: invoice.booking.nationality || "",
               notes: invoice.notes,
               bankReference: invoice.bankReference,
-              squarePaymentId: invoice.squarePaymentId,
+              stripePaymentIntentId: invoice.stripePaymentIntentId,
               dueAt: invoice.dueAt?.toISOString() ?? null,
               sentAt: invoice.sentAt?.toISOString() ?? null,
               paidAt: invoice.paidAt?.toISOString() ?? null,

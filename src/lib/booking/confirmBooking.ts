@@ -233,7 +233,7 @@ export async function confirmBooking(input: {
   seatsBooked: number;
   paymentMethod: "card" | "bank_transfer";
   invoiceStatus: "paid" | "unpaid";
-  squarePaymentId?: string;
+  stripePaymentIntentId?: string;
   /** Override charged total (e.g. fare + credit card fee). */
   amountCentsOverride?: number;
   serviceFeeCents?: number;
@@ -339,7 +339,7 @@ export async function confirmBooking(input: {
             : null;
         const invoiceNotes =
           serviceFeeCents > 0
-            ? `Includes credit card fee ${serviceFeeCents} cents (2.2%).`
+            ? `Includes card processing fee ${serviceFeeCents} cents.`
             : holdExpiresAt
               ? "Awaiting bank transfer · seats held for 48 hours."
               : "";
@@ -408,7 +408,7 @@ export async function confirmBooking(input: {
               fareCents,
             }),
             currency: "AUD",
-            squarePaymentId: input.squarePaymentId,
+            stripePaymentIntentId: input.stripePaymentIntentId,
             bankAccountName: input.bankDetails?.accountName,
             bankBsb: input.bankDetails?.bsb,
             bankAccountNumber: input.bankDetails?.accountNumber,

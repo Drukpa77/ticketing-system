@@ -62,56 +62,24 @@ async function main() {
   const businessReleasePrices = [129_900, 159_900, 189_900];
   const economyReleasePrices = [89_900, 109_900, 129_900];
 
-  const schedules = [
-    {
+  // 20 schedules × 2 cabins = 40 flights, spread over ~3 months, alternating
+  // direction, with varied departure hours for realistic search testing.
+  const DEPARTURE_HOURS = [1, 2, 3, 5, 6, 7, 9, 11, 14, 22];
+  const SCHEDULE_COUNT = 20;
+
+  const schedules = Array.from({ length: SCHEDULE_COUNT }, (_, i) => {
+    const outbound = i % 2 === 0;
+    const dayOffset = 3 + i * 4; // every ~4 days, out to ~80 days ahead
+    const hour = DEPARTURE_HOURS[i % DEPARTURE_HOURS.length];
+    return {
       airline: "Drukair",
-      flightNumber: "KB500",
-      origin: "PER",
-      destination: "PBH",
-      departureAt: daysFromNow(5, 2),
+      flightNumber: `KB${500 + i}`,
+      origin: outbound ? "PER" : "PBH",
+      destination: outbound ? "PBH" : "PER",
+      departureAt: daysFromNow(dayOffset, hour),
       durationHours: 9.5,
-    },
-    {
-      airline: "Drukair",
-      flightNumber: "KB501",
-      origin: "PBH",
-      destination: "PER",
-      departureAt: daysFromNow(12, 6),
-      durationHours: 9.5,
-    },
-    {
-      airline: "Drukair",
-      flightNumber: "KB502",
-      origin: "PER",
-      destination: "PBH",
-      departureAt: daysFromNow(8, 1),
-      durationHours: 9.5,
-    },
-    {
-      airline: "Drukair",
-      flightNumber: "KB503",
-      origin: "PBH",
-      destination: "PER",
-      departureAt: daysFromNow(15, 5),
-      durationHours: 9.5,
-    },
-    {
-      airline: "Drukair",
-      flightNumber: "KB510",
-      origin: "PER",
-      destination: "PBH",
-      departureAt: daysFromNow(19, 3),
-      durationHours: 9.5,
-    },
-    {
-      airline: "Drukair",
-      flightNumber: "KB511",
-      origin: "PBH",
-      destination: "PER",
-      departureAt: daysFromNow(26, 7),
-      durationHours: 9.5,
-    },
-  ] as const;
+    };
+  });
 
   const cabins = ["economy", "business"] as const;
   let created = 0;
@@ -154,7 +122,7 @@ async function main() {
   }
 
   console.log(
-    `Seeded ${created} Drukair PER⇄PBH flights (KB500–KB511 · economy + business)`,
+    `Seeded ${created} Drukair PER⇄PBH flights (KB500–KB${500 + SCHEDULE_COUNT - 1} · economy + business)`,
   );
 }
 

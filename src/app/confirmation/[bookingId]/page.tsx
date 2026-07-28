@@ -316,9 +316,9 @@ export default async function ConfirmationPage({
 
               {invoice.paymentMethod === "card" && paid && (
                 <p className="mt-4 text-sm text-muted">
-                  Paid securely via Square
-                  {invoice.squarePaymentId
-                    ? ` · ${invoice.squarePaymentId}`
+                  Paid securely via Stripe
+                  {invoice.stripePaymentIntentId
+                    ? ` · ${invoice.stripePaymentIntentId}`
                     : ""}
                 </p>
               )}

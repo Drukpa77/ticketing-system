@@ -41,7 +41,7 @@ export async function loadBookingDocumentData(
     amountPaidCents: booking.amountPaidCents,
     serviceFeeCents: booking.serviceFeeCents,
     tripType: booking.tripType,
-    squarePaymentId: booking.invoice?.squarePaymentId,
+    stripePaymentIntentId: booking.invoice?.stripePaymentIntentId,
     flight: booking.flight,
     returnFlight: booking.returnFlight,
     invoice: booking.invoice
@@ -72,7 +72,7 @@ export async function loadBookingDocumentData(
           bankAccountNumber: booking.invoice.bankAccountNumber,
           bankReference: booking.invoice.bankReference,
           customerPhone: booking.invoice.customerPhone,
-          squarePaymentId: booking.invoice.squarePaymentId,
+          stripePaymentIntentId: booking.invoice.stripePaymentIntentId,
           notes: booking.invoice.notes,
         }
       : null,
