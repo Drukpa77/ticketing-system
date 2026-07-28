@@ -146,6 +146,7 @@ export async function expireStaleBankHolds() {
           subject: mail.subject,
           html: mail.html,
           text: mail.text,
+          mailbox: "ticketing",
         });
       }
 

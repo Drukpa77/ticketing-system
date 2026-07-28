@@ -384,7 +384,7 @@ export async function sendInvoiceEmailModalAction(invoiceId: string) {
     return {
       ok: true as const,
       warning:
-        "Marked sent locally — configure RESEND_API_KEY or SMTP to actually email customers.",
+        "Marked sent locally — configure TICKETING_SMTP_USER/PASS and ACCOUNTS_SMTP_USER/PASS to actually email customers.",
     };
   }
 

@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { getBrand } from "@/lib/branding";
 
+const metadataBrand = getBrand();
+
 export const metadata = {
-  title: "Privacy Policy | Drukair bookings",
-  description:
-    "How we collect, use, and protect personal data when you book flights through L&B Global.",
+  title: `Privacy Policy | ${metadataBrand.issuingAgent} bookings`,
+  description: `How we collect, use, and protect personal data when you book flights through ${metadataBrand.issuingAgent}.`,
 };
 
 export default function PrivacyPage() {

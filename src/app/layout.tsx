@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Manrope, Syne } from "next/font/google";
 import { SiteHeaderShell } from "@/components/SiteHeaderShell";
+import { getBrand } from "@/lib/branding";
 import "./globals.css";
+
+const brand = getBrand();
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -25,12 +28,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Drukair – Royal Bhutan Airlines | Flight bookings",
-  description:
-    "Book Drukair flights with live fares, e-tickets, and tax invoices in AUD",
+  title: `${brand.issuingAgent} | ${brand.airlineName} Flight Bookings`,
+  description: `Book ${brand.airlineName} charter flights with ${brand.issuingAgent} — live fares, e-tickets, and tax invoices in AUD`,
   icons: {
-    icon: "/drukair_logo.png",
-    apple: "/drukair_logo.png",
+    icon: brand.logoPath,
+    apple: brand.logoPath,
   },
 };
 

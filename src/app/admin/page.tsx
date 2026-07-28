@@ -103,7 +103,7 @@ export default async function AdminPage({
               className="size-10 object-contain"
             />
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
-              {process.env.NEXT_PUBLIC_BRAND_SHORT_NAME || "Drukair"}
+              {process.env.NEXT_PUBLIC_BRAND_SHORT_NAME || "L&B Global"}
             </p>
           </div>
           <h1 className="heading-gradient mt-3 font-[family-name:var(--font-syne)] text-4xl font-semibold tracking-tight">
@@ -263,7 +263,7 @@ export default async function AdminPage({
                 className="size-10 object-contain"
               />
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
-                {process.env.NEXT_PUBLIC_BRAND_SHORT_NAME || "Drukair"} ·
+                {process.env.NEXT_PUBLIC_BRAND_SHORT_NAME || "L&B Global"} ·
                 Operations
               </p>
             </div>

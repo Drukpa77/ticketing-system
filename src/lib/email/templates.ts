@@ -14,9 +14,10 @@ function esc(value: string) {
     .replaceAll('"', "&quot;");
 }
 
-export function bookingConfirmationEmail(data: BookingDocumentData) {
+/** Sent from the ticketing@ mailbox — e-ticket / itinerary only, no financial detail. */
+export function eTicketEmail(data: BookingDocumentData) {
   const brand = getBrand();
-  const subject = `Your ${brand.issuingAgent} Flight Booking is Confirmed – ${data.bookingRef}`;
+  const subject = `Your ${brand.issuingAgent} E-Ticket & Itinerary – ${data.bookingRef}`;
   const route = `${data.flight.origin} → ${data.flight.destination}${
     data.returnFlight
       ? ` · Return ${data.returnFlight.origin} → ${data.returnFlight.destination}`
@@ -26,12 +27,6 @@ export function bookingConfirmationEmail(data: BookingDocumentData) {
     `${brand.siteUrl}/documents/eticket/${encodeURIComponent(data.bookingRef)}`,
     data.accessToken,
   );
-  const invoiceUrl = data.invoice
-    ? withAccessToken(
-        `${brand.siteUrl}/documents/invoice/${encodeURIComponent(data.invoice.invoiceNumber)}`,
-        data.accessToken,
-      )
-    : brand.siteUrl;
 
   const html = `
   <div style="font-family:Georgia,serif;color:#0F172A;line-height:1.55;max-width:640px">
@@ -42,17 +37,17 @@ export function bookingConfirmationEmail(data: BookingDocumentData) {
     <h1 style="font-size:24px;margin:8px 0 16px">Booking confirmed</h1>
     <p>Dear ${esc(data.passengerName)},</p>
     <p>Thank you for choosing <strong>${esc(brand.issuingAgent)}</strong>.</p>
-    <p>We have successfully received your payment, and your booking is now confirmed. Your e-ticket is attached to this email.</p>
+    <p>We have successfully received your payment, and your booking is now confirmed. Your e-ticket and itinerary are attached to this email.</p>
     <h2 style="font-size:14px;letter-spacing:0.12em;text-transform:uppercase;color:#2563EB;border-bottom:1px solid #E2E8F0;padding-bottom:6px">Booking Summary</h2>
     <p><strong>Booking Reference:</strong> ${esc(data.bookingRef)}<br/>
     <strong>Route:</strong> ${esc(route)}<br/>
-    <strong>Departure:</strong> ${esc(formatDocDateTime(data.flight.departureAt))}<br/>
-    <strong>Total Paid:</strong> ${esc(formatAud(data.amountPaidCents))}</p>
-    <p><strong>Attached / available online:</strong></p>
-    <ul>
-      <li><a href="${travelUrl}">E-Ticket, Itinerary, Receipts &amp; Tax Invoice</a></li>
-      <li><a href="${invoiceUrl}">Airfare Invoice</a></li>
-    </ul>
+    <strong>Departure:</strong> ${esc(formatDocDateTime(data.flight.departureAt))}</p>
+    <p><a href="${travelUrl}">View E-Ticket &amp; Itinerary online</a></p>
+    ${
+      data.invoice
+        ? `<p>Your tax invoice / receipt is emailed separately by our accounts team.</p>`
+        : ""
+    }
     <p>Please review passenger name, flight route, travel date, booking reference, and passport details carefully. Arrive at the airport at least ${brand.arriveHoursBefore} hours before departure.</p>
     <p>Kind regards,<br/>${esc(brand.reservationsTeam)}<br/>${esc(brand.issuingAgent)}</p>
   </div>`;
@@ -65,16 +60,60 @@ Your payment has been received and your booking is confirmed.
 Booking Reference: ${data.bookingRef}
 Route: ${route}
 Departure: ${formatDocDateTime(data.flight.departureAt)}
-Total Paid: ${formatAud(data.amountPaidCents)}
 
-Travel document: ${travelUrl}
-Airfare invoice: ${invoiceUrl}
-
+E-Ticket & Itinerary: ${travelUrl}
+${data.invoice ? "Your tax invoice / receipt is emailed separately by our accounts team.\n" : ""}
 Kind regards,
 ${brand.reservationsTeam}
 ${brand.issuingAgent}`;
 
-  return { subject, html, text, ticketUrl: travelUrl, invoiceUrl };
+  return { subject, html, text, ticketUrl: travelUrl };
+}
+
+/** Sent from the accounts@ mailbox — paid tax invoice / receipt only. */
+export function invoiceReceiptEmail(data: BookingDocumentData) {
+  const brand = getBrand();
+  const invoiceNumber = data.invoice?.invoiceNumber ?? data.bookingRef;
+  const subject = `Tax Invoice / Receipt ${invoiceNumber} – ${brand.issuingAgent}`;
+  const invoiceUrl = data.invoice
+    ? withAccessToken(
+        `${brand.siteUrl}/documents/invoice/${encodeURIComponent(data.invoice.invoiceNumber)}`,
+        data.accessToken,
+      )
+    : brand.siteUrl;
+
+  const html = `
+  <div style="font-family:Georgia,serif;color:#0F172A;line-height:1.55;max-width:640px">
+    <p style="margin:0 0 12px">
+      <img src="${esc(brand.logoUrl)}" alt="${esc(brand.shortName)}" width="56" height="56" style="display:block;width:56px;height:56px;object-fit:contain" />
+    </p>
+    <p style="color:#2563EB;letter-spacing:0.12em;text-transform:uppercase;font-size:12px">${esc(brand.issuingAgent)} Accounts</p>
+    <h1 style="font-size:24px;margin:8px 0 16px">Payment received — tax invoice attached</h1>
+    <p>Dear ${esc(data.passengerName)},</p>
+    <p>Thank you for your payment. Your tax invoice / receipt for booking <strong>${esc(data.bookingRef)}</strong> is attached to this email.</p>
+    <p><strong>Invoice Number:</strong> ${esc(invoiceNumber)}<br/>
+    <strong>Total Paid:</strong> ${esc(formatAud(data.amountPaidCents))}</p>
+    <p><a href="${invoiceUrl}">View invoice online</a></p>
+    <p>Your e-ticket and itinerary are emailed separately by our ticketing team.</p>
+    <p>Kind regards,<br/>Accounts Team<br/>${esc(brand.issuingAgent)}</p>
+  </div>`;
+
+  const text = `Dear ${data.passengerName},
+
+Thank you for your payment. Your tax invoice / receipt for booking ${data.bookingRef} is attached.
+
+Invoice Number: ${invoiceNumber}
+Total Paid: ${formatAud(data.amountPaidCents)}
+
+Invoice: ${invoiceUrl}
+
+Your e-ticket and itinerary are emailed separately by our ticketing team.
+
+Kind regards,
+Accounts Team
+${brand.issuingAgent}`;
+
+  return { subject, html, text, invoiceUrl };
 }
 
 export function bankTransferEmail(data: BookingDocumentData) {

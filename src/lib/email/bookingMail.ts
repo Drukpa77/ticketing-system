@@ -6,7 +6,8 @@ import {
 } from "@/lib/documents/templates";
 import {
   bankTransferEmail,
-  bookingConfirmationEmail,
+  eTicketEmail,
+  invoiceReceiptEmail,
 } from "@/lib/email/templates";
 import { sendEmail } from "@/lib/email/send";
 
@@ -79,6 +80,11 @@ export async function loadBookingDocumentData(
   };
 }
 
+/**
+ * Sends TWO separate emails from two separate mailboxes:
+ *  - e-ticket / itinerary from ticketing@
+ *  - tax invoice / receipt from accounts@ (only if an invoice exists)
+ */
 export async function sendBookingConfirmationBundle(bookingId: string) {
   const data = await loadBookingDocumentData(bookingId);
   if (!data) return { ok: false as const, error: "Booking not found" };
@@ -89,41 +95,58 @@ export async function sendBookingConfirmationBundle(bookingId: string) {
     };
   }
 
-  const email = bookingConfirmationEmail(data);
+  const ticketEmail = eTicketEmail(data);
   const travelDoc = renderTravelDocumentHtml(data);
-  const airfareHtml = data.invoice ? renderAirfareInvoiceHtml(data) : null;
-
-  const result = await sendEmail({
+  const ticketResult = await sendEmail({
     to: data.email,
-    subject: email.subject,
-    html: email.html,
-    text: email.text,
+    subject: ticketEmail.subject,
+    html: ticketEmail.html,
+    text: ticketEmail.text,
+    mailbox: "ticketing",
     attachments: [
       {
         filename: `E-Ticket-Itinerary-${data.bookingRef}.html`,
         content: travelDoc,
         contentType: "text/html",
       },
-      ...(airfareHtml
-        ? [
-            {
-              filename: `Airfare-Invoice-${data.invoice!.invoiceNumber}.html`,
-              content: airfareHtml,
-              contentType: "text/html",
-            },
-          ]
-        : []),
     ],
   });
 
-  if (result.ok && data.invoice) {
-    await prisma.invoice.update({
-      where: { invoiceNumber: data.invoice.invoiceNumber },
-      data: { sentAt: new Date() },
+  let invoiceResult: Awaited<ReturnType<typeof sendEmail>> | null = null;
+  if (data.invoice) {
+    const receiptEmail = invoiceReceiptEmail(data);
+    const airfareHtml = renderAirfareInvoiceHtml(data);
+    invoiceResult = await sendEmail({
+      to: data.email,
+      subject: receiptEmail.subject,
+      html: receiptEmail.html,
+      text: receiptEmail.text,
+      mailbox: "accounts",
+      attachments: [
+        {
+          filename: `Airfare-Invoice-${data.invoice.invoiceNumber}.html`,
+          content: airfareHtml,
+          contentType: "text/html",
+        },
+      ],
     });
+
+    if (invoiceResult.ok) {
+      await prisma.invoice.update({
+        where: { invoiceNumber: data.invoice.invoiceNumber },
+        data: { sentAt: new Date() },
+      });
+    }
   }
 
-  return result;
+  if (!ticketResult.ok) return ticketResult;
+  if (invoiceResult && !invoiceResult.ok) {
+    return {
+      ok: false as const,
+      error: `E-ticket sent, but invoice email failed: ${invoiceResult.error}`,
+    };
+  }
+  return ticketResult;
 }
 
 export async function sendBankTransferBundle(bookingId: string) {
@@ -142,6 +165,7 @@ export async function sendBankTransferBundle(bookingId: string) {
     subject: email.subject,
     html: email.html,
     text: email.text,
+    mailbox: "accounts",
     attachments: [
       {
         filename: `Airfare-Invoice-${data.invoice.invoiceNumber}.html`,

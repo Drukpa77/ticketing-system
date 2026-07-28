@@ -11,12 +11,12 @@ export function getBrand() {
     airlineName:
       process.env.BRAND_AIRLINE_NAME?.trim() ||
       "Drukair – Royal Bhutan Airlines",
-    shortName: process.env.BRAND_SHORT_NAME?.trim() || "Drukair",
+    shortName: process.env.BRAND_SHORT_NAME?.trim() || "L&B Global",
     /** Public path for the brand mark (UI). */
     logoPath,
     /** Absolute logo URL for emails / external HTML. */
     logoUrl: `${siteUrl.replace(/\/$/, "")}${logoPath}`,
-    bookingPrefix: process.env.BRAND_BOOKING_PREFIX?.trim() || "DRK",
+    bookingPrefix: process.env.BRAND_BOOKING_PREFIX?.trim() || "LBG",
     reservationsTeam:
       process.env.BRAND_RESERVATIONS_TEAM?.trim() || "Chartered Flight Team",
     supportEmail:
@@ -42,7 +42,8 @@ export function getBrand() {
       "ticketing@lbglobal.com.au",
     /** Where customers send bank-transfer payment screenshots for confirmation. */
     paymentProofEmail:
-      process.env.BRAND_PAYMENT_PROOF_EMAIL?.trim() || "lbglobal@gmail.com.au",
+      process.env.BRAND_PAYMENT_PROOF_EMAIL?.trim() ||
+      "accounts@lbglobal.com.au",
     invoiceAccountNumber:
       process.env.BRAND_INVOICE_ACCOUNT_NUMBER?.trim() || "CA216212900",
     invoiceBusinessTpn:

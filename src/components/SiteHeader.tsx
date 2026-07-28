@@ -18,7 +18,7 @@ export function SiteHeader({ cartCount = 0 }: { cartCount?: number }) {
         >
           <BrandLogo size={36} className="size-8 sm:size-9" />
           <span className="truncate">
-            {process.env.NEXT_PUBLIC_BRAND_SHORT_NAME || "Drukair"}
+            {process.env.NEXT_PUBLIC_BRAND_SHORT_NAME || "L&B Global"}
           </span>
         </Link>
 
